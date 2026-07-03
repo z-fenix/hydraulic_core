@@ -1,11 +1,18 @@
 cmake_minimum_required(VERSION 3.16)
-project(hydro_core VERSION 0.1.0 LANGUAGES C)
+project(hydro_core VERSION 0.1.0 LANGUAGES C CXX)
 
-# C17 standard
+# C17 / C++17 standards
 set(CMAKE_C_STANDARD 17)
 set(CMAKE_C_STANDARD_REQUIRED ON)
-# Symbols are visible by default (needed for Python ctypes bindings)
-# set(CMAKE_C_VISIBILITY_PRESET hidden)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# Options
+option(HYDRO_OPENMP "Enable OpenMP parallelism" ON)
+option(HYDRO_BUILD_TESTS "Build C tests" ON)
+option(HYDRO_BUILD_SHARED "Build shared library" ON)
+option(HYDRO_BUILD_STATIC "Build static library" ON)
+option(HYDRO_BUILD_PYBIND11 "Build pybind11 Python extension" ON)
 
 # Installation paths
 include(GNUInstallDirs)
@@ -244,4 +251,29 @@ if(HYDRO_BUILD_TESTS)
         m
     )
     add_test(NAME phase6 COMMAND test_phase6)
+endif()
+
+# ===========================================================================
+# pybind11 Python extension
+# ===========================================================================
+
+if(HYDRO_BUILD_PYBIND11)
+    find_package(pybind11 REQUIRED)
+
+    pybind11_add_module(_core python/bindings.cpp)
+
+    target_include_directories(_core PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+    )
+
+    target_link_libraries(_core PRIVATE
+        hydro_shared
+        netcdf_imported
+        ${OpenMP_C_LIBRARIES}
+    )
+
+    # Install into the hydro package directory
+    install(TARGETS _core
+        LIBRARY DESTINATION "${CMAKE_CURRENT_SOURCE_DIR}/hydro"
+    )
 endif()

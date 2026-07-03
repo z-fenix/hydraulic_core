@@ -29,7 +29,7 @@ from hydro.mesh_builder import rectangular_cross_domain
 # ---------------------------------------------------------------------------
 length = 40.0
 width = 5.0
-dx = dy = 0.1
+dx = dy = 0.2
 
 vertices, triangles, bedges, btags = rectangular_cross_domain(
     int(length / dx), int(width / dy), len1=length, len2=width,

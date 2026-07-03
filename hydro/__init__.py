@@ -3,7 +3,7 @@ Hydro Core — Shallow Water Equation Solver
 ===========================================
 
 A standalone C library for finite-volume simulation of the shallow water
-equations on unstructured triangular meshes, with Python bindings.
+equations on unstructured triangular meshes, with pybind11 Python bindings.
 
 Quick start
 -----------
@@ -31,8 +31,9 @@ Quick start
 >>> domain.close()
 """
 
-from .domain import (
+from hydro._core import (
     Domain,
+    # Constants
     G,
     EPSILON,
     MINIMUM_ALLOWED_HEIGHT,
@@ -40,46 +41,18 @@ from .domain import (
     DEFAULT_MANNING,
     EVOLVE_MAX_TIMESTEP,
     EVOLVE_MIN_TIMESTEP,
+    # Timestepping methods
     EULER,
     RK2,
     RK3,
-)
-
-# Boundary condition types
-from ._core import (
+    # Boundary condition types
+    HYDRO_BC_NONE,
     HYDRO_BC_REFLECTIVE,
     HYDRO_BC_DIRICHLET,
     HYDRO_BC_TRANSMISSIVE,
     HYDRO_BC_TIME,
     HYDRO_BC_DIRICHLET_DISCHARGE,
     HYDRO_BC_TRANSMISSIVE_STAGE,
-    BCParams,
-)
-
-# Convenience imports for module-level access
-from . import _core
-
-# Geometry helpers (thin wrappers around C functions)
-from ._core import (
-    hydro_polygon_area,
-    hydro_is_inside_polygon,
-    hydro_is_inside_triangle,
-    hydro_separate_points_by_polygon,
-    hydro_point_on_line,
-    find_containing_triangle as _find_containing_triangle,
 )
 
 __version__ = "0.1.0"
-__all__ = [
-    "Domain",
-    "G",
-    "EPSILON",
-    "MINIMUM_ALLOWED_HEIGHT",
-    "MAXIMUM_ALLOWED_SPEED",
-    "DEFAULT_MANNING",
-    "EVOLVE_MAX_TIMESTEP",
-    "EVOLVE_MIN_TIMESTEP",
-    "EULER",
-    "RK2",
-    "RK3",
-]
