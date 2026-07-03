@@ -16,10 +16,74 @@
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 
 #ifdef _OPENMP
 #include <omp.h>
 #endif
+
+/* ==========================================================================
+ * Wall-clock timer (seconds)
+ * ========================================================================== */
+
+static double wall_seconds(void) {
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return (double)ts.tv_sec + (double)ts.tv_nsec * 1e-9;
+}
+
+/* ==========================================================================
+ * Memory usage (MB) — Linux /proc/self/status
+ * ========================================================================== */
+
+static long get_vmrss_mb(void) {
+    long mb = -1;
+    FILE* f = fopen("/proc/self/status", "r");
+    if (!f) return mb;
+    char line[256];
+    while (fgets(line, sizeof(line), f)) {
+        long val;
+        if (sscanf(line, "VmRSS: %ld kB", &val) == 1) {
+            mb = val / 1024;
+            break;
+        }
+    }
+    fclose(f);
+    return mb;
+}
+
+/* ==========================================================================
+ * Per-yieldstep progress log
+ * ========================================================================== */
+
+static void print_yieldstep_progress(
+    double sim_time, double wall_elapsed, double wall_interval,
+    double dt_min, double dt_max, long long step_count,
+    long long interval_steps, double finaltime,
+    double evolve_start_sim_time)
+{
+    /* Estimated time remaining — based on overall progress from evolve start */
+    double progress = (finaltime > evolve_start_sim_time)
+        ? (sim_time - evolve_start_sim_time) / (finaltime - evolve_start_sim_time)
+        : 0.0;
+    double eta_sec = (progress > 1e-10) ? wall_elapsed / progress - wall_elapsed : 0.0;
+    if (eta_sec < 0) eta_sec = 0;
+
+    long eta_min = (long)(eta_sec / 60.0);
+    long eta_s   = (long)fmod(eta_sec, 60.0);
+
+    long mem_mb = get_vmrss_mb();
+
+    printf("Time = %.4f (sec), delta t in [%.8f, %.8f] (s), "
+           "steps=%lld (%llds), elapsed (%.0fs), eta (%ldm:%02lds)",
+           sim_time, dt_min, dt_max,
+           (long long)step_count, (long long)wall_interval,
+           wall_elapsed, eta_min, eta_s);
+    if (mem_mb > 0)
+        printf(", mem=%ldMB", mem_mb);
+    printf("\n");
+    fflush(stdout);
+}
 
 /* ==========================================================================
  * Timestep control
@@ -176,6 +240,15 @@ int hydro_domain_evolve(
 
     printf("hydro: evolving to t=%g with yieldstep=%g\n", finaltime, yieldstep);
 
+    /* ---- Progress-tracking state ---- */
+    double evolve_start_wall  = wall_seconds();
+    double evolve_start_sim   = domain->time;
+    double yield_wall_start   = evolve_start_wall;
+    long long yield_step_start = domain->step;
+    double yield_dt_min       = 1e100;
+    double yield_dt_max       = 0.0;
+    int first_yield           = 1;
+
     while (domain->time < finaltime) {
         /* Choose timestepping method */
         switch (domain->timestepping_method) {
@@ -195,6 +268,10 @@ int hydro_domain_evolve(
         domain->time += domain->timestep;
         domain->step++;
 
+        /* Update per-interval dt min/max */
+        if (domain->timestep < yield_dt_min) yield_dt_min = domain->timestep;
+        if (domain->timestep > yield_dt_max) yield_dt_max = domain->timestep;
+
         /* Update derived quantities (height, velocity from conserved) */
         hydro_quantity_update_derived(domain);
 
@@ -204,14 +281,46 @@ int hydro_domain_evolve(
         hydro_quantity_distribute_edges_to_vertices(domain);
 
         /* Store to SWW at yieldstep intervals */
+        int at_yield = 0;
         if (sww && yieldstep > 0) {
             double reltime = domain->time - domain->starttime;
             if (fabs(fmod(domain->time, yieldstep)) < domain->timestep * 0.5
                 || domain->time >= finaltime) {
                 hydro_sww_store_timestep(sww, domain, reltime);
-                printf("hydro: t=%g (step %lld, dt=%g)\n",
-                       domain->time, (long long)domain->step, domain->timestep);
+                at_yield = 1;
             }
+        } else {
+            /* No SWW output — print progress at yieldstep boundaries anyway */
+            if (yieldstep > 0) {
+                double next_yield = (domain->yieldstep_counter) * yieldstep;
+                if (fabs(domain->time - next_yield) < domain->timestep * 0.5
+                    || domain->time >= finaltime) {
+                    at_yield = 1;
+                }
+            }
+        }
+
+        if (at_yield) {
+            double wall_now = wall_seconds();
+            double wall_elapsed = wall_now - evolve_start_wall;
+            double wall_interval = wall_now - yield_wall_start;
+
+            /* Only print if meaningful work was done */
+            if (first_yield || wall_interval > 0.001) {
+                print_yieldstep_progress(
+                    domain->time, wall_elapsed, wall_interval,
+                    yield_dt_min, yield_dt_max,
+                    domain->step,
+                    domain->step - yield_step_start,
+                    finaltime, evolve_start_sim);
+                first_yield = 0;
+            }
+
+            /* Reset per-interval tracking */
+            yield_wall_start  = wall_now;
+            yield_step_start  = domain->step;
+            yield_dt_min      = 1e100;
+            yield_dt_max      = 0.0;
         }
     }
 
