@@ -31,28 +31,44 @@ Quick start
 >>> domain.close()
 """
 
-from hydro._core import (
-    Domain,
-    # Constants
-    G,
-    EPSILON,
-    MINIMUM_ALLOWED_HEIGHT,
-    MAXIMUM_ALLOWED_SPEED,
-    DEFAULT_MANNING,
-    EVOLVE_MAX_TIMESTEP,
-    EVOLVE_MIN_TIMESTEP,
-    # Timestepping methods
-    EULER,
-    RK2,
-    RK3,
-    # Boundary condition types
-    HYDRO_BC_NONE,
-    HYDRO_BC_REFLECTIVE,
-    HYDRO_BC_DIRICHLET,
-    HYDRO_BC_TRANSMISSIVE,
-    HYDRO_BC_TIME,
-    HYDRO_BC_DIRICHLET_DISCHARGE,
-    HYDRO_BC_TRANSMISSIVE_STAGE,
-)
+try:
+    from hydro._core import (  # type: ignore[import]
+        Domain,
+        # Constants
+        G,
+        EPSILON,
+        MINIMUM_ALLOWED_HEIGHT,
+        MAXIMUM_ALLOWED_SPEED,
+        DEFAULT_MANNING,
+        EVOLVE_MAX_TIMESTEP,
+        EVOLVE_MIN_TIMESTEP,
+        # Timestepping methods
+        EULER,
+        RK2,
+        RK3,
+        # Boundary condition types
+        HYDRO_BC_NONE,
+        HYDRO_BC_REFLECTIVE,
+        HYDRO_BC_DIRICHLET,
+        HYDRO_BC_TRANSMISSIVE,
+        HYDRO_BC_TIME,
+        HYDRO_BC_DIRICHLET_DISCHARGE,
+        HYDRO_BC_TRANSMISSIVE_STAGE,
+    )
+except ModuleNotFoundError:
+    import sys
+    print(
+        "╔══════════════════════════════════════════════════════════════╗\n"
+        "║  hydro._core extension not built.                           ║\n"
+        "║                                                            ║\n"
+        "║  Build it with:                                            ║\n"
+        "║    ./scripts/build_pybind11.sh install                     ║\n"
+        "║                                                            ║\n"
+        "║  Or install the package:                                   ║\n"
+        "║    pip install -e .                                        ║\n"
+        "╚══════════════════════════════════════════════════════════════╝",
+        file=sys.stderr,
+    )
+    raise
 
 __version__ = "0.1.0"
