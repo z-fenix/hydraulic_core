@@ -102,7 +102,7 @@ hydro_sww_t* hydro_sww_create(
     /* ==================================================================
      * Deduplicate expanded vertex_coordinates → unique vertices
      * ================================================================== */
-    hydro_int hash_size = n_exp * 2;
+    hydro_int hash_size = n_exp * 4;  /* 4× for short probe chains */
     vert_hash_entry_t* hash = (vert_hash_entry_t*)calloc((size_t)hash_size,
         sizeof(vert_hash_entry_t));
 
@@ -379,7 +379,7 @@ hydro_sww_t* hydro_sww_open(
     /* Rebuild vertex deduplication tables (same logic as create) */
     hydro_int N = domain->number_of_elements;
     hydro_int n_exp = 3 * N;
-    hydro_int hash_size = n_exp * 2;
+    hydro_int hash_size = n_exp * 4;  /* 4× for short probe chains */
     vert_hash_entry_t* hash = (vert_hash_entry_t*)calloc((size_t)hash_size,
         sizeof(vert_hash_entry_t));
 
