@@ -8,3 +8,4 @@ __pycache__/
 .idea/
 _core*.so
 _core.*.so
+build_pybind11/

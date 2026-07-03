@@ -154,9 +154,8 @@ hydro_sww_t* hydro_sww_create(
     write_global_attr_double(ncid, "starttime", starttime);
     write_global_attr(ncid, "timezone", "UTC");
     write_global_attr(ncid, "revision_number", "None");
-    write_global_attr(ncid, "anuga_version", "hydro_core_0.1.0");
+    write_global_attr(ncid, "version", "hydro_core_0.1.0");
 
-    /* Geo-reference attributes (matching ANUGA convention) */
     write_global_attr_double(ncid, "xllcorner", domain->xllcorner);
     write_global_attr_double(ncid, "yllcorner", domain->yllcorner);
     {
