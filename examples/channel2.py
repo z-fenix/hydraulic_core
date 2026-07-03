@@ -76,8 +76,8 @@ output_path = os.path.join(os.path.dirname(__file__), "..", "channel2.sww")
 
 t0 = time.time()
 
-print("Phase 1: Reflective right wall (0 → 5 s)")
-domain.evolve(finaltime=5.0, yieldstep=0.2)
+print("Phase 1: Reflective right wall (0 → 20 s)")
+domain.evolve(finaltime=20.0, yieldstep=0.2)
 
 stage = domain.get_stage()
 right_mask = cent_x > 9.0
@@ -86,7 +86,7 @@ print(f"  Stage near outlet: max={stage[right_mask].max():.4f}")
 # ---------------------------------------------------------------------------
 # Phase 2: Switch to outflow boundary (append to same SWW)
 # ---------------------------------------------------------------------------
-print("Phase 2: Outflow right wall (5 → 40 s)")
+print("Phase 2: Outflow right wall (20 → 40 s)")
 domain.set_boundary(2, HYDRO_BC_DIRICHLET, stage=-5.0)
 domain.evolve(finaltime=40.0, yieldstep=0.2)
 
