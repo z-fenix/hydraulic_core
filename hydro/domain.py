@@ -157,6 +157,10 @@ class Domain:
             self._handle, _core.hydro_int(tag), stage, xmom, ymom,
         )
 
+    def set_name(self, name: str):
+        """Placeholder — no-op for ANUGA compatibility."""
+        pass
+
     def get_time(self) -> float:
         return _core._lib.hydro_domain_get_time(self._handle)
 
