@@ -2,9 +2,13 @@
 """
 Water flowing down a channel with changing boundary conditions.
 
-Starts with reflective right wall.  Once water reaches the downstream end
-(stage > 0 at x=10), the right boundary is changed to an outflow
-(Dirichlet stage = -5).
+Starts with reflective right wall for the first 5 seconds to let water
+build up, then switches to an outflow boundary (Dirichlet stage = -5).
+
+NOTE: Dynamic boundary switching during evolve requires a generator-style
+API (as in ANUGA's ``for t in domain.evolve(...)``).  The current hydro_core
+C evolve is a single blocking call, so we approximate the behavior by
+evolving in two phases.
 
 Ported from: anuga_core/examples/simple_examples/channel2.py
 """
@@ -44,6 +48,7 @@ elevation = -cent_x / 10.0
 # Create domain
 # ---------------------------------------------------------------------------
 domain = Domain(vertices, triangles, btags, bedges)
+domain.set_name('channel2')
 
 domain.set_elevation(elevation)
 domain.set_friction(np.full(n_tri, 0.01))
@@ -56,41 +61,34 @@ domain.set_parameter("spatial_order", 1)
 domain.set_parameter("timestepping_method", EULER)
 
 # ---------------------------------------------------------------------------
-# Boundary conditions — start with reflective right wall
+# Boundary conditions
 # ---------------------------------------------------------------------------
 domain.set_boundary(1, HYDRO_BC_DIRICHLET, stage=0.4)     # left — inflow
-domain.set_boundary(2, HYDRO_BC_REFLECTIVE)               # right — wall (initially)
+domain.set_boundary(2, HYDRO_BC_REFLECTIVE)               # right — wall
 domain.set_boundary(3, HYDRO_BC_REFLECTIVE)               # top — wall
 domain.set_boundary(4, HYDRO_BC_REFLECTIVE)               # bottom — wall
 
 # ---------------------------------------------------------------------------
-# Evolve with dynamic boundary switching
+# Phase 1: Inflow with reflective right wall (water builds up)
 # ---------------------------------------------------------------------------
 output_path = os.path.join(os.path.dirname(__file__), "..", "channel2_output.sww")
-outflow_enabled = False
 
 t0 = time.time()
 
-# Run in sub-intervals so we can check stage and switch the boundary
-current_time = 0.0
-finaltime = 40.0
-yieldstep = 0.2
+print("Phase 1: Reflective right wall (0 → 5 s)")
+# Use a temporary file for phase 1 (we only need the final state)
+domain.evolve(finaltime=5.0, yieldstep=0.2)
 
-while current_time < finaltime:
-    target = min(current_time + yieldstep, finaltime)
-    domain.evolve(finaltime=target, yieldstep=target - current_time)
+stage = domain.get_stage()
+right_mask = cent_x > 9.0
+print(f"  Stage near outlet: max={stage[right_mask].max():.4f}")
 
-    stage = domain.get_stage()
-    current_time = target
-
-    # Check if water has reached the downstream end
-    # (any triangle near x=10 with positive stage)
-    right_mask = cent_x > 9.0
-    if right_mask.any() and np.max(stage[right_mask]) > 0.0:
-        if not outflow_enabled:
-            outflow_enabled = True
-            print(f"t={current_time:.1f}: Stage > 0 at outlet — switching to outflow")
-            domain.set_boundary(2, HYDRO_BC_DIRICHLET, stage=-5.0)
+# ---------------------------------------------------------------------------
+# Phase 2: Switch to outflow boundary
+# ---------------------------------------------------------------------------
+print("Phase 2: Outflow right wall (5 → 40 s)")
+domain.set_boundary(2, HYDRO_BC_DIRICHLET, stage=-5.0)
+domain.evolve(finaltime=40.0, yieldstep=0.2, output_sww=output_path)
 
 elapsed = time.time() - t0
 

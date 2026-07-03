@@ -153,8 +153,11 @@ int hydro_domain_evolve(
             return -1;
         }
 
-        /* Store initial timestep (t=0) */
-        hydro_sww_store_timestep(sww, domain, 0.0);
+        /* Store initial timestep for this evolve call */
+        {
+            double init_time = domain->time - domain->starttime;
+            hydro_sww_store_timestep(sww, domain, init_time);
+        }
     }
 
     printf("hydro: evolving to t=%g with yieldstep=%g\n", finaltime, yieldstep);
