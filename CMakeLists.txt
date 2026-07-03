@@ -12,7 +12,7 @@ option(HYDRO_OPENMP "Enable OpenMP parallelism" ON)
 option(HYDRO_BUILD_TESTS "Build C tests" ON)
 option(HYDRO_BUILD_SHARED "Build shared library" ON)
 option(HYDRO_BUILD_STATIC "Build static library" ON)
-option(HYDRO_BUILD_PYBIND11 "Build pybind11 Python extension" ON)
+option(HYDRO_BUILD_PYBIND11 "Build pybind11 Python extension (requires pybind11 + Python dev)" OFF)
 
 # Installation paths
 include(GNUInstallDirs)
@@ -258,7 +258,31 @@ endif()
 # ===========================================================================
 
 if(HYDRO_BUILD_PYBIND11)
-    find_package(pybind11 REQUIRED)
+    # --- Locate pybind11 ---
+    # Try find_package first; if not found, ask Python for its cmake directory.
+    find_package(pybind11 QUIET)
+    if(NOT pybind11_FOUND)
+        execute_process(
+            COMMAND ${Python_EXECUTABLE} -c
+                    "import pybind11; print(pybind11.get_cmake_dir())"
+            OUTPUT_VARIABLE _pybind11_cmake_dir
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+            RESULT_VARIABLE _pybind11_result
+        )
+        if(_pybind11_result EQUAL 0 AND EXISTS "${_pybind11_cmake_dir}")
+            list(APPEND CMAKE_PREFIX_PATH "${_pybind11_cmake_dir}")
+            find_package(pybind11 REQUIRED)
+        else()
+            message(FATAL_ERROR
+                "pybind11 not found.  Install it or point pybind11_DIR to its "
+                "cmake directory.\n"
+                "  pip install pybind11\n"
+                "  # or if using CLion, set cmake option:\n"
+                "  # -Dpybind11_DIR=$(python -c 'import pybind11; print(pybind11.get_cmake_dir())')")
+        endif()
+    endif()
+
+    message(STATUS "pybind11 found: ${pybind11_INCLUDE_DIR}")
 
     pybind11_add_module(_core python/bindings.cpp)
 
