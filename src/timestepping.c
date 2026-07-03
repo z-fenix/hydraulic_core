@@ -86,8 +86,23 @@ void hydro_evolve_one_euler_step(
     /* 6. Update conserved quantities */
     hydro_quantity_update(domain, domain->timestep);
 
-    /* 7. Fix any negative cells that resulted */
-    hydro_fix_negative_cells(domain);
+    /* 7. Protect: ensure non-negative water depth, fix momentum in dry cells */
+    {
+        double mass_err = hydro_protect(domain);
+        if (mass_err > domain->minimum_allowed_height * 0.1) {
+            fprintf(stderr, "hydro: protect mass error = %g (step %lld, t=%g)\n",
+                    mass_err, (long long)domain->step, domain->time);
+        }
+    }
+
+    /* 8. Secondary safety net: catch any cells still negative after protect */
+    {
+        hydro_int neg = hydro_fix_negative_cells(domain);
+        if (neg > 0) {
+            fprintf(stderr, "hydro: WARNING — %lld cells still negative after protect (step %lld)\n",
+                    (long long)neg, (long long)domain->step);
+        }
+    }
 }
 
 void hydro_evolve_one_rk2_step(
@@ -123,6 +138,14 @@ int hydro_domain_evolve(
 
     /* Open SWW file if output requested */
     if (output_sww_path && output_sww_path[0] != '\0') {
+        /* Compute derived quantities (height, velocity) and extrapolate
+         * centroid→edges→vertices BEFORE creating SWW, so that
+         * bed_vertex_values / bed_edge_values are populated for
+         * correct elevation writing. */
+        hydro_quantity_update_derived(domain);
+        hydro_quantity_extrapolate_first_order(domain);
+        hydro_quantity_distribute_edges_to_vertices(domain);
+
         sww = hydro_sww_create(output_sww_path, domain, domain->starttime);
         if (!sww) {
             fprintf(stderr, "hydro: failed to create SWW file '%s'\n",
@@ -130,12 +153,7 @@ int hydro_domain_evolve(
             return -1;
         }
 
-        /* Compute derived quantities (height, velocity) before first step */
-        hydro_quantity_update_derived(domain);
-
-        /* Do initial extrapolation and store initial timestep */
-        hydro_quantity_extrapolate_first_order(domain);
-        hydro_quantity_distribute_edges_to_vertices(domain);
+        /* Store initial timestep (t=0) */
         hydro_sww_store_timestep(sww, domain, 0.0);
     }
 

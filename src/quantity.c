@@ -96,10 +96,17 @@ void hydro_quantity_update(hydro_domain_t* domain, double timestep) {
         if (s != 0.0) domain->stage_semi_implicit_update[k] /= s;
         else          domain->stage_semi_implicit_update[k]  = 0.0;
 
-        domain->stage_centroid_values[k] += timestep * domain->stage_explicit_update[k];
+        double s_new = s + timestep * domain->stage_explicit_update[k];
         double denom = 1.0 - timestep * domain->stage_semi_implicit_update[k];
         if (fabs(denom) > 1e-12)
-            domain->stage_centroid_values[k] /= denom;
+            s_new /= denom;
+
+        /* Clamp: stage must stay at or above bed elevation */
+        if (domain->bed_centroid_values) {
+            double bed = domain->bed_centroid_values[k];
+            if (s_new < bed) s_new = bed;
+        }
+        domain->stage_centroid_values[k] = s_new;
         domain->stage_explicit_update[k] = 0.0;
         domain->stage_semi_implicit_update[k] = 0.0;
     }
@@ -586,9 +593,20 @@ void hydro_quantity_update_derived(hydro_domain_t* domain) {
     #pragma omp parallel for simd schedule(static)
     #endif
     for (hydro_int k = 0; k < N; k++) {
-        double h = domain->stage_centroid_values[k]
-                 - domain->bed_centroid_values[k];
-        if (h < h0) h = h0;
+        double bed = domain->bed_centroid_values[k];
+        double stage = domain->stage_centroid_values[k];
+        double h = stage - bed;
+
+        /* Ensure non-negative water depth:
+         * If stage is below bed, raise stage to bed so height ≥ 0.
+         * Then clamp height to minimum allowed height h0 for velocity safety. */
+        if (h < 0.0) {
+            stage = bed;
+            domain->stage_centroid_values[k] = bed;
+            h = h0;  /* minimum wet height for velocity protection */
+        } else if (h < h0) {
+            h = h0;
+        }
         domain->height_centroid_values[k] = h;
 
         if (domain->xmom_centroid_values) {

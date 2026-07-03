@@ -404,11 +404,12 @@ double hydro_protect(hydro_domain_t* domain) {
                   - domain->bed_centroid_values[k];
 
         if (hc < h0) {
-            /* Set momentum to zero and ensure h >= 0 */
+            /* Dry or nearly-dry cell: zero momentum */
             domain->xmom_centroid_values[k] = 0.0;
             domain->ymom_centroid_values[k] = 0.0;
 
             if (hc <= 0.0) {
+                /* Water depth is negative — raise stage to bed elevation */
                 double bmin = domain->bed_centroid_values[k];
 
                 if (domain->stage_centroid_values[k] < bmin) {
@@ -416,10 +417,15 @@ double hydro_protect(hydro_domain_t* domain) {
                                 * domain->areas[k];
                     domain->stage_centroid_values[k] = bmin;
 
-                    /* Also set vertex values for consistency */
+                    /* Also fix vertex values for consistency in SWW output */
                     domain->stage_vertex_values[k3]     = bmin;
                     domain->stage_vertex_values[k3 + 1] = bmin;
                     domain->stage_vertex_values[k3 + 2] = bmin;
+                }
+
+                /* Ensure height_centroid is at least h0 */
+                if (domain->height_centroid_values) {
+                    domain->height_centroid_values[k] = h0;
                 }
             }
         }
