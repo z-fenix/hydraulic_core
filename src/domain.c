@@ -113,9 +113,14 @@ hydro_domain_t* hydro_domain_create(hydro_int n_nodes, hydro_int n_triangles) {
     /* ---- Work arrays ---- */
     d->max_speed          = alloc_double(n_triangles);
     d->edge_timestep      = alloc_double(n_edges);
-    d->edge_flux_work     = alloc_double(n_edges);
-    d->neigh_work         = alloc_double(n_edges);
-    d->pressuregrad_work  = alloc_double(n_edges);
+    d->edge_qr_stage  = alloc_double(n_edges);
+    d->edge_qr_xmom   = alloc_double(n_edges);
+    d->edge_qr_ymom   = alloc_double(n_edges);
+    d->edge_zr        = alloc_double(n_edges);
+    d->edge_h_left    = alloc_double(n_edges);
+    d->edge_hre       = alloc_double(n_edges);
+    d->edge_h_right   = alloc_double(n_edges);
+    d->edge_z_half    = alloc_double(n_edges);
     d->x_centroid_work    = alloc_double(n_triangles);
     d->y_centroid_work    = alloc_double(n_triangles);
     d->boundary_flux_sum  = alloc_double(3);  /* max_time_substeps=3 */
@@ -129,6 +134,7 @@ hydro_domain_t* hydro_domain_create(hydro_int n_nodes, hydro_int n_triangles) {
     d->boundary_length = 0;
     d->boundary_tags   = NULL;
     d->boundary_edges  = NULL;
+    d->boundary_tag_map = NULL;
 
     /* Initialize per-tag BC configuration: default = reflective (type=1) */
     for (int i = 0; i < 128; i++) {
@@ -215,9 +221,14 @@ void hydro_domain_destroy(hydro_domain_t* d) {
 
     free(d->max_speed);
     free(d->edge_timestep);
-    free(d->edge_flux_work);
-    free(d->neigh_work);
-    free(d->pressuregrad_work);
+    free(d->edge_qr_stage);
+    free(d->edge_qr_xmom);
+    free(d->edge_qr_ymom);
+    free(d->edge_zr);
+    free(d->edge_h_left);
+    free(d->edge_hre);
+    free(d->edge_h_right);
+    free(d->edge_z_half);
     free(d->x_centroid_work);
     free(d->y_centroid_work);
     free(d->boundary_flux_sum);
@@ -229,6 +240,7 @@ void hydro_domain_destroy(hydro_domain_t* d) {
 
     free(d->boundary_tags);
     free(d->boundary_edges);
+    free(d->boundary_tag_map);
 
     free(d->stage_boundary_values);
     free(d->xmom_boundary_values);
@@ -299,8 +311,8 @@ void hydro_domain_set_geometry(
     hydro_int n_edges = d->number_of_edges;
     hydro_int i, k3;
 
-    (void)boundary_tags;      /* stored but not processed until Phase 3 */
-    (void)boundary_edges_in;  /* stored but not processed until Phase 3 */
+    (void)boundary_tags;      /* stored via hydro_domain_set_boundary_tag_map */
+    (void)boundary_edges_in;  /* stored via hydro_domain_set_boundary_tag_map */
 
     /* Copy triangle connectivity */
     for (i = 0; i < n_edges; i++) {
@@ -405,6 +417,28 @@ void hydro_domain_set_geometry(
         if (d1 < min_d) min_d = d1;
         if (d2 < min_d) min_d = d2;
         d->radii[i] = min_d;
+    }
+}
+
+/* ==========================================================================
+ * Boundary tag map — stores user-provided per-edge boundary tags
+ * ========================================================================== */
+
+void hydro_domain_set_boundary_tag_map(
+    hydro_domain_t* d,
+    const hydro_int* boundary_edges_in,
+    const hydro_int* boundary_tags_in,
+    hydro_int       count)
+{
+    hydro_int n_edges = d->number_of_edges;
+    if (!d->boundary_tag_map) {
+        d->boundary_tag_map = (hydro_int*)calloc((size_t)n_edges, sizeof(hydro_int));
+    }
+    for (hydro_int i = 0; i < count; i++) {
+        hydro_int be = boundary_edges_in[i];
+        if (be >= 0 && be < n_edges) {
+            d->boundary_tag_map[be] = boundary_tags_in[i];
+        }
     }
 }
 

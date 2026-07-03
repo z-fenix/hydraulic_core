@@ -288,7 +288,9 @@ int hydro_mesh_build_boundary_structure(hydro_domain_t* d) {
             if (d->neighbours[ni] < 0) {
                 d->neighbours[ni] = -(bi + 1);  /* unique negative index */
                 d->boundary_edges[bi] = ni;
-                d->boundary_tags[bi]  = 1;       /* default tag */
+                /* Use user-provided tag from boundary_tag_map, or default to 1 */
+                d->boundary_tags[bi] = (d->boundary_tag_map && d->boundary_tag_map[ni] > 0)
+                    ? d->boundary_tag_map[ni] : 1;
                 bi++;
             }
         }

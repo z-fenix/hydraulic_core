@@ -204,6 +204,53 @@ int hydro_flux_function_central(
 /* ==========================================================================
  * Compute fluxes for all edges — the main OpenMP loop
  * ========================================================================== */
+/* ==========================================================================
+ * Pre-compute right-side edge data for all edges.
+ * Auto-called by compute_fluxes_central on first use per timestep.
+ * ========================================================================== */
+void hydro_edge_precompute(hydro_domain_t* domain) {
+    hydro_int n_e = domain->number_of_edges;
+    double* stage_e = domain->stage_edge_values;
+    double* xmom_e  = domain->xmom_edge_values;
+    double* ymom_e  = domain->ymom_edge_values;
+    double* bed_e   = domain->bed_edge_values;
+    double* h_e     = domain->height_edge_values;
+    hydro_int* nbr  = domain->neighbours;
+    hydro_int* nbr_e = domain->neighbour_edges;
+    double* s_bnd   = domain->stage_boundary_values;
+    double* x_bnd   = domain->xmom_boundary_values;
+    double* y_bnd   = domain->ymom_boundary_values;
+
+    #ifdef _OPENMP
+    #pragma omp parallel for schedule(static) firstprivate(n_e)
+    #endif
+    for (hydro_int ei = 0; ei < n_e; ei++) {
+        hydro_int n = nbr[ei];
+        if (n < 0) {
+            hydro_int bi = -n - 1;
+            domain->edge_qr_stage[ei] = s_bnd[bi];
+            domain->edge_qr_xmom[ei]  = x_bnd[bi];
+            domain->edge_qr_ymom[ei]  = y_bnd[bi];
+            domain->edge_zr[ei]       = bed_e[ei];
+            domain->edge_hre[ei]      = fmax(domain->edge_qr_stage[ei] - bed_e[ei], 0.0);
+            domain->edge_z_half[ei]   = bed_e[ei];
+            domain->edge_h_left[ei]   = fmax(h_e[ei], 0.0);
+            domain->edge_h_right[ei]  = fmax(domain->edge_hre[ei], 0.0);
+        } else {
+            hydro_int nm = n * 3 + nbr_e[ei];
+            domain->edge_qr_stage[ei] = stage_e[nm];
+            domain->edge_qr_xmom[ei]  = xmom_e[nm];
+            domain->edge_qr_ymom[ei]  = ymom_e[nm];
+            domain->edge_zr[ei]       = bed_e[nm];
+            domain->edge_hre[ei]      = h_e[nm];
+            double zh = fmax(bed_e[ei], bed_e[nm]);
+            domain->edge_z_half[ei]   = zh;
+            domain->edge_h_left[ei]   = fmax(h_e[ei] + bed_e[ei] - zh, 0.0);
+            domain->edge_h_right[ei]  = fmax(h_e[nm] + bed_e[nm] - zh, 0.0);
+        }
+    }
+}
+
 
 double hydro_compute_fluxes_central(
     hydro_domain_t* domain, double evolve_max_timestep)
@@ -212,6 +259,13 @@ double hydro_compute_fluxes_central(
     double g      = domain->g;
     double epsilon = domain->epsilon;
     hydro_int low_froude = domain->low_froude;
+
+    /* Auto-call precompute (idempotent) and cache pre-computed arrays */
+    hydro_edge_precompute(domain);
+    double *qr_s = domain->edge_qr_stage, *qr_x = domain->edge_qr_xmom;
+    double *qr_y = domain->edge_qr_ymom, *zr_a = domain->edge_zr;
+    double *hre_a = domain->edge_hre, *hl_a = domain->edge_h_left;
+    double *hr_a = domain->edge_h_right, *zh_a = domain->edge_z_half;
 
     double local_timestep = 1.0e+100;
     double boundary_flux_sum = 0.0;
@@ -225,6 +279,17 @@ double hydro_compute_fluxes_central(
         hydro_int k3 = 3 * k;
         double area     = domain->areas[k];
         double speed_max_last = 0.0;
+
+        /* Dry-cell skip: if all 3 edges are dry on both sides,
+         * no flux can occur.  Pre-computed h_left/h_right tell us. */
+        if (hl_a[k3] == 0.0 && hl_a[k3+1] == 0.0 && hl_a[k3+2] == 0.0
+            && hr_a[k3] == 0.0 && hr_a[k3+1] == 0.0 && hr_a[k3+2] == 0.0) {
+            domain->stage_explicit_update[k] = 0.0;
+            domain->xmom_explicit_update[k]  = 0.0;
+            domain->ymom_explicit_update[k]  = 0.0;
+            domain->max_speed[k] = 0.0;
+            continue;
+        }
 
         /* Zero the explicit updates for this triangle */
         domain->stage_explicit_update[k] = 0.0;
@@ -240,41 +305,23 @@ double hydro_compute_fluxes_central(
             double pressure_flux;
             double max_speed_local;
 
-            /* Extract edge data */
+            /* Read pre-computed edge data */
             hydro_int n = domain->neighbours[ki];
             int is_boundary = (n < 0);
 
             double ql[3] = {domain->stage_edge_values[ki],
                             domain->xmom_edge_values[ki],
                             domain->ymom_edge_values[ki]};
+            double qr[3] = {qr_s[ki], qr_x[ki], qr_y[ki]};
             double zl    = domain->bed_edge_values[ki];
             double hle   = domain->height_edge_values[ki];
+            double hre   = hre_a[ki];
+            double h_left  = hl_a[ki];
+            double h_right = hr_a[ki];
+            double z_half  = zh_a[ki];
             double len   = domain->edgelengths[ki];
             double nx    = domain->normals[ki2];
             double ny    = domain->normals[ki2 + 1];
-
-            double qr[3], zr, hre;
-
-            if (is_boundary) {
-                hydro_int bnd_idx = -n - 1;
-                qr[0] = domain->stage_boundary_values[bnd_idx];
-                qr[1] = domain->xmom_boundary_values[bnd_idx];
-                qr[2] = domain->ymom_boundary_values[bnd_idx];
-                zr    = zl;
-                hre   = fmax(qr[0] - zr, 0.0);
-            } else {
-                hydro_int m  = domain->neighbour_edges[ki];
-                hydro_int nm = n * 3 + m;
-                qr[0] = domain->stage_edge_values[nm];
-                qr[1] = domain->xmom_edge_values[nm];
-                qr[2] = domain->ymom_edge_values[nm];
-                zr    = domain->bed_edge_values[nm];
-                hre   = domain->height_edge_values[nm];
-            }
-
-            double z_half = fmax(zl, zr);
-            double h_left  = fmax(hle + zl - z_half, 0.0);
-            double h_right = fmax(hre + zr - z_half, 0.0);
 
             /* Compute flux */
             if (h_left == 0.0 && h_right == 0.0) {

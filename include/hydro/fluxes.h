@@ -19,6 +19,8 @@ extern "C" {
  * @param evolve_max_timestep  Maximum allowed timestep
  * @return                The computed flux_timestep
  */
+void hydro_edge_precompute(hydro_domain_t* domain);
+
 double hydro_compute_fluxes_central(
     hydro_domain_t* domain,
     double          evolve_max_timestep);

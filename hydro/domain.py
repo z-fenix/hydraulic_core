@@ -92,11 +92,20 @@ class Domain:
             bt = np.asarray(boundary_tags, dtype=np.int64)
             be = np.asarray(boundary_edges, dtype=np.int64)
 
-        # Pass UNIQUE vertices — C code expands internally via triangles array
+        # Pass UNIQUE vertices — C code expands internally via triangles array.
+        # Build tag_map tuple for correct boundary tag assignment.
+        tag_map = None
+        if boundary_tags is not None and boundary_edges is not None:
+            tag_map = (
+                np.asarray(boundary_edges, dtype=np.int64),
+                np.asarray(boundary_tags, dtype=np.int64),
+                _core.hydro_int(len(boundary_edges)),
+            )
+
         self._set_geometry(
             np.asarray(vertices, dtype=np.float64).ravel(),
             np.asarray(triangles, dtype=np.int64).ravel(),
-            bt, be,
+            bt, be, tag_map,
         )
 
         self.set_parameter("CFL", 1.0)
@@ -107,9 +116,13 @@ class Domain:
     # Internal
     # ------------------------------------------------------------------
 
-    def _set_geometry(self, vc, tri, bt, be):
+    def _set_geometry(self, vc, tri, bt, be, tag_map=None):
         _core._lib.hydro_domain_set_geometry(self._handle, vc, tri, bt, be)
         _core._lib.hydro_mesh_build_neighbour_structure(self._handle)
+        if tag_map is not None:
+            edges, tags, count = tag_map
+            _core._lib.hydro_domain_set_boundary_tag_map(
+                self._handle, edges, tags, count)
         _core._lib.hydro_mesh_build_boundary_structure(self._handle)
 
     @property

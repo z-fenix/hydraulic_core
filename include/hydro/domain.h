@@ -131,12 +131,17 @@ typedef struct {
     double* xmom_semi_implicit_update;  /* [n_elements] */
     double* ymom_semi_implicit_update;  /* [n_elements] */
 
-    /* ---- Work arrays ---- */
+    /* ---- Work and pre-compute arrays ---- */
     double* max_speed;                  /* [n_elements], diagnostic */
     double* edge_timestep;              /* [3*n_elements] */
-    double* edge_flux_work;             /* [3*n_elements] */
-    double* neigh_work;                 /* [3*n_elements] */
-    double* pressuregrad_work;          /* [3*n_elements] */
+    double* edge_qr_stage;             /* [3*n_elements] pre-computed right stage */
+    double* edge_qr_xmom;              /* [3*n_elements] pre-computed right xmom  */
+    double* edge_qr_ymom;              /* [3*n_elements] pre-computed right ymom  */
+    double* edge_zr;                   /* [3*n_elements] pre-computed right bed   */
+    double* edge_h_left;               /* [3*n_elements] pre-computed left depth  */
+    double* edge_hre;                 /* [3*n_elements] pre-computed right edge h  */
+    double* edge_h_right;              /* [3*n_elements] pre-computed right depth */
+    double* edge_z_half;               /* [3*n_elements] pre-computed max bed     */
     double* x_centroid_work;            /* [n_elements] */
     double* y_centroid_work;            /* [n_elements] */
 
@@ -176,6 +181,7 @@ typedef struct {
     /* ---- Boundary metadata ---- */
     hydro_int* boundary_tags;           /* [boundary_length], tag for each boundary edge */
     hydro_int* boundary_edges;          /* [boundary_length], edge index for each boundary */
+    hydro_int* boundary_tag_map;        /* [3*n_elements], per-edge tag (0=interior, >0=boundary) */
 
     /* Per-tag BC configuration (tag 0 = default reflective) */
 #define HYDRO_MAX_BOUNDARY_TAGS 128
@@ -248,6 +254,18 @@ void hydro_domain_set_geometry(
     const hydro_int* triangles,
     const hydro_int* boundary_tags,
     const hydro_int* boundary_edges);
+
+/**
+ * Set boundary tag lookup table from user-provided per-edge tags.
+ * boundary_edges_in: flat edge indices [count]
+ * boundary_tags_in: corresponding tags [count]
+ * count: number of boundary edges
+ */
+void hydro_domain_set_boundary_tag_map(
+    hydro_domain_t* domain,
+    const hydro_int* boundary_edges_in,
+    const hydro_int* boundary_tags_in,
+    hydro_int       count);
 
 /**
  * Set quantity values at triangle centroids.

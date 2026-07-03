@@ -79,7 +79,9 @@ def rectangular_cross_domain(nx: int, ny: int, len1: float = 1.0, len2: float = 
             v2 = t[(ei + 1) % 3]
             x1, y1 = all_verts[v1]
             x2, y2 = all_verts[v2]
-            flat_edge = 3 * ti + ei
+            # Map to C edge numbering: edge 0=(v1,v2), 1=(v2,v0), 2=(v0,v1)
+            c_ei = 2 if ei == 0 else (0 if ei == 1 else 1)
+            flat_edge = 3 * ti + c_ei
 
             if abs(x1) < 1e-10 and abs(x2) < 1e-10:
                 boundary_edges.append(flat_edge)

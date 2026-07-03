@@ -99,6 +99,14 @@ _lib.hydro_domain_set_geometry.argtypes = [
 ]
 _lib.hydro_domain_set_geometry.restype = None
 
+_lib.hydro_domain_set_boundary_tag_map.argtypes = [
+    c_void_p,
+    ndpointer(np.int64, flags="C_CONTIGUOUS"),
+    ndpointer(np.int64, flags="C_CONTIGUOUS"),
+    hydro_int,
+]
+_lib.hydro_domain_set_boundary_tag_map.restype = None
+
 _lib.hydro_domain_set_quantity.argtypes = [
     c_void_p, c_char_p,
     ndpointer(np.float64, flags="C_CONTIGUOUS"),
