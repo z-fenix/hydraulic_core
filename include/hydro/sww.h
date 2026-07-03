@@ -25,6 +25,20 @@ hydro_sww_t* hydro_sww_create(
     double                starttime);
 
 /**
+ * Open an existing SWW file for appending timesteps.
+ *
+ * Reads existing geometry and positions the writer after the last
+ * stored timestep.  The domain must match the file's geometry.
+ *
+ * @param path    Path to existing SWW file
+ * @param domain  The domain (must match file geometry)
+ * @return        SWW file handle, or NULL on error
+ */
+hydro_sww_t* hydro_sww_open(
+    const char*           path,
+    const hydro_domain_t* domain);
+
+/**
  * Write one timestep of dynamic quantity data.
  *
  * Appends: time, stage, xmomentum, ymomentum values at triangle vertices.

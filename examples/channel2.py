@@ -49,6 +49,7 @@ elevation = -cent_x / 10.0
 # ---------------------------------------------------------------------------
 domain = Domain(vertices, triangles, btags, bedges)
 domain.set_name('channel2')
+domain.set_output_dir(os.path.join(os.path.dirname(__file__), '..'))
 
 domain.set_elevation(elevation)
 domain.set_friction(np.full(n_tri, 0.01))
@@ -71,12 +72,11 @@ domain.set_boundary(4, HYDRO_BC_REFLECTIVE)               # bottom — wall
 # ---------------------------------------------------------------------------
 # Phase 1: Inflow with reflective right wall (water builds up)
 # ---------------------------------------------------------------------------
-output_path = os.path.join(os.path.dirname(__file__), "..", "channel2_output.sww")
+output_path = os.path.join(os.path.dirname(__file__), "..", "channel2.sww")
 
 t0 = time.time()
 
 print("Phase 1: Reflective right wall (0 → 5 s)")
-# Use a temporary file for phase 1 (we only need the final state)
 domain.evolve(finaltime=5.0, yieldstep=0.2)
 
 stage = domain.get_stage()
@@ -84,11 +84,11 @@ right_mask = cent_x > 9.0
 print(f"  Stage near outlet: max={stage[right_mask].max():.4f}")
 
 # ---------------------------------------------------------------------------
-# Phase 2: Switch to outflow boundary
+# Phase 2: Switch to outflow boundary (append to same SWW)
 # ---------------------------------------------------------------------------
 print("Phase 2: Outflow right wall (5 → 40 s)")
 domain.set_boundary(2, HYDRO_BC_DIRICHLET, stage=-5.0)
-domain.evolve(finaltime=40.0, yieldstep=0.2, output_sww=output_path)
+domain.evolve(finaltime=40.0, yieldstep=0.2)
 
 elapsed = time.time() - t0
 

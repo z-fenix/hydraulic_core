@@ -94,6 +94,10 @@ hydro_domain_t* hydro_domain_create(hydro_int n_nodes, hydro_int n_triangles) {
     strcpy(d->projection, "UTM");
     strcpy(d->units, "m");
 
+    /* ---- SWW output defaults ---- */
+    d->name[0] = '\0';              /* empty = no SWW output */
+    strcpy(d->output_dir, ".");
+
     /* ---- Mesh geometry (allocated now, filled by set_geometry) ---- */
     d->vertex_coordinates   = alloc_double(n_edges * 2);
     d->edge_coordinates     = alloc_double(n_edges * 2);
@@ -550,6 +554,24 @@ void hydro_domain_set_parameter(
     else if (strcmp(name, "zone") == 0)             d->zone = (hydro_int)value;
     else {
         fprintf(stderr, "hydro: unknown parameter '%s'\n", name);
+    }
+}
+
+void hydro_domain_set_name(hydro_domain_t* d, const char* name) {
+    if (name) {
+        strncpy(d->name, name, sizeof(d->name) - 1);
+        d->name[sizeof(d->name) - 1] = '\0';
+    } else {
+        d->name[0] = '\0';
+    }
+}
+
+void hydro_domain_set_output_dir(hydro_domain_t* d, const char* dir) {
+    if (dir && dir[0] != '\0') {
+        strncpy(d->output_dir, dir, sizeof(d->output_dir) - 1);
+        d->output_dir[sizeof(d->output_dir) - 1] = '\0';
+    } else {
+        strcpy(d->output_dir, ".");
     }
 }
 

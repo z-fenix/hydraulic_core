@@ -25,7 +25,8 @@ Quick start
 >>> domain.set_parameter('spatial_order', 1)
 >>> domain.set_parameter('timestepping_method', 1)
 >>>
->>> domain.evolve(finaltime=0.1, yieldstep=0.05, output_sww='dam_break.sww')
+>>> domain.set_name('dam_break')  # SWW → ./dam_break.sww
+>>> domain.evolve(finaltime=0.1, yieldstep=0.05)
 >>> print(domain.get_stage())
 >>> domain.close()
 """

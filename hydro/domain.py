@@ -7,7 +7,8 @@ Usage
 >>> domain = Domain(vertices, triangles)
 >>> domain.set_quantity('elevation', bed_values)
 >>> domain.set_stage(stage_values)
->>> domain.evolve(finaltime=10.0, yieldstep=1.0, output_sww='output.sww')
+>>> domain.set_name('output')  # SWW → output_dir/output.sww
+>>> domain.evolve(finaltime=10.0, yieldstep=1.0)
 >>> stage = domain.get_stage()
 >>> domain.close()
 """
@@ -171,8 +172,16 @@ class Domain:
         )
 
     def set_name(self, name: str):
-        """Placeholder — no-op for ANUGA compatibility."""
-        pass
+        """Set the domain name (used for SWW output filename).
+
+        The SWW file will be written to ``{output_dir}/{name}.sww``.
+        Set to empty string to disable SWW output.
+        """
+        _core._lib.hydro_domain_set_name(self._handle, name.encode())
+
+    def set_output_dir(self, dir: str):
+        """Set the output directory for SWW files (default: '.')."""
+        _core._lib.hydro_domain_set_output_dir(self._handle, dir.encode())
 
     def get_time(self) -> float:
         return _core._lib.hydro_domain_get_time(self._handle)
@@ -181,12 +190,16 @@ class Domain:
     # Evolve
     # ------------------------------------------------------------------
 
-    def evolve(self, finaltime: float = 10.0, yieldstep: float = 1.0,
-               output_sww: Optional[str] = None):
+    def evolve(self, finaltime: float = 10.0, yieldstep: float = 1.0):
+        """Evolve the domain from current time to ``finaltime``.
+
+        SWW output is written to ``{output_dir}/{domain_name}.sww``
+        automatically if ``set_name()`` was called.  If the file already
+        exists, new timesteps are appended.
+        """
         _core._lib.hydro_quantity_update_derived(self._handle)
-        path_bytes = output_sww.encode() if output_sww else None
         ret = _core._lib.hydro_domain_evolve(
-            self._handle, float(finaltime), float(yieldstep), path_bytes,
+            self._handle, float(finaltime), float(yieldstep),
         )
         if ret != 0:
             raise RuntimeError(f"hydro_domain_evolve failed (code {ret})")

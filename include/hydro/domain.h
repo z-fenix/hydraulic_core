@@ -181,6 +181,10 @@ typedef struct {
     char projection[32];                /* e.g. "UTM" */
     char units[16];                     /* e.g. "m" */
 
+    /* ---- SWW output configuration ---- */
+    char name[256];                     /* domain name (used for SWW filename) */
+    char output_dir[1024];              /* output directory for SWW files */
+
     /* ---- Flow algorithm ---- */
     hydro_int spatial_order;            /* 1 or 2 */
     hydro_int timestepping_method;      /* 1=Euler, 2=RK2, 3=RK3 */
@@ -300,6 +304,18 @@ void hydro_domain_set_parameter(
     hydro_domain_t* domain,
     const char*     name,
     double          value);
+
+/**
+ * Set the domain name (used for SWW output filename: {output_dir}/{name}.sww).
+ * Set to empty string or NULL to disable SWW output.
+ */
+void hydro_domain_set_name(hydro_domain_t* domain, const char* name);
+
+/**
+ * Set the output directory for SWW files.
+ * Defaults to "." if not set.
+ */
+void hydro_domain_set_output_dir(hydro_domain_t* domain, const char* dir);
 
 /**
  * Get quantity centroid values (for post-simulation inspection).

@@ -131,30 +131,44 @@ void hydro_evolve_one_rk3_step(
 int hydro_domain_evolve(
     hydro_domain_t* domain,
     double          finaltime,
-    double          yieldstep,
-    const char*     output_sww_path)
+    double          yieldstep)
 {
     hydro_sww_t* sww = NULL;
+    int sww_is_append = 0;
 
-    /* Open SWW file if output requested */
-    if (output_sww_path && output_sww_path[0] != '\0') {
-        /* Compute derived quantities (height, velocity) and extrapolate
-         * centroid→edges→vertices BEFORE creating SWW, so that
-         * bed_vertex_values / bed_edge_values are populated for
-         * correct elevation writing. */
+    /* Build SWW path from domain name + output_dir, if name is set */
+    if (domain->name[0] != '\0') {
+        char sww_path[5120];
+        int n = snprintf(sww_path, sizeof(sww_path), "%s/%s.sww",
+                         domain->output_dir, domain->name);
+        if (n >= (int)sizeof(sww_path)) {
+            fprintf(stderr, "hydro: SWW path too long\n");
+            return -1;
+        }
+
+        /* Compute derived quantities and extrapolate centroid→edges→vertices
+         * before opening SWW, so bed_vertex_values are populated. */
         hydro_quantity_update_derived(domain);
         hydro_quantity_extrapolate_first_order(domain);
         hydro_quantity_distribute_edges_to_vertices(domain);
 
-        sww = hydro_sww_create(output_sww_path, domain, domain->starttime);
+        /* Check if file exists — append if so, create if not */
+        FILE* test = fopen(sww_path, "r");
+        if (test) {
+            fclose(test);
+            sww = hydro_sww_open(sww_path, domain);
+            sww_is_append = 1;
+        } else {
+            sww = hydro_sww_create(sww_path, domain, domain->starttime);
+        }
+
         if (!sww) {
-            fprintf(stderr, "hydro: failed to create SWW file '%s'\n",
-                    output_sww_path);
+            fprintf(stderr, "hydro: failed to open SWW file '%s'\n", sww_path);
             return -1;
         }
 
-        /* Store initial timestep for this evolve call */
-        {
+        /* On first create, store initial frame */
+        if (!sww_is_append) {
             double init_time = domain->time - domain->starttime;
             hydro_sww_store_timestep(sww, domain, init_time);
         }

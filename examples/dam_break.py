@@ -35,6 +35,8 @@ def main():
 
     # ---- 2. Create domain ------------------------------------------------
     domain = Domain(vertices, triangles)
+    domain.set_name('dam_break')
+    domain.set_output_dir(os.path.join(os.path.dirname(__file__), '..'))
     print(f"Domain created: {domain}")
 
     # ---- 3. Set initial conditions ---------------------------------------
@@ -59,10 +61,10 @@ def main():
 
     # ---- 5. Evolve -------------------------------------------------------
     output_path = os.path.join(
-        os.path.dirname(__file__), "..", "dam_break_output.sww"
+        os.path.dirname(__file__), "..", "dam_break.sww"
     )
     print(f"\nEvolving to t=0.2 with yieldstep=0.05...")
-    domain.evolve(finaltime=0.2, yieldstep=0.05, output_sww=output_path)
+    domain.evolve(finaltime=0.2, yieldstep=0.05)
 
     # ---- 6. Inspect results ----------------------------------------------
     stage = domain.get_stage()

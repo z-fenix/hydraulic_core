@@ -125,6 +125,12 @@ _lib.hydro_domain_get_quantity.restype = None
 _lib.hydro_domain_get_time.argtypes = [c_void_p]
 _lib.hydro_domain_get_time.restype = c_double
 
+_lib.hydro_domain_set_name.argtypes = [c_void_p, c_char_p]
+_lib.hydro_domain_set_name.restype = None
+
+_lib.hydro_domain_set_output_dir.argtypes = [c_void_p, c_char_p]
+_lib.hydro_domain_set_output_dir.restype = None
+
 # ===================================================================
 # mesh.c
 # ===================================================================
@@ -368,6 +374,9 @@ _lib.hydro_inlet_distribute_volume.restype = c_double
 _lib.hydro_sww_create.argtypes = [c_char_p, c_void_p, c_double]
 _lib.hydro_sww_create.restype = c_void_p
 
+_lib.hydro_sww_open.argtypes = [c_char_p, c_void_p]
+_lib.hydro_sww_open.restype = c_void_p
+
 _lib.hydro_sww_store_timestep.argtypes = [c_void_p, c_void_p, c_double]
 _lib.hydro_sww_store_timestep.restype = c_int
 
@@ -519,7 +528,7 @@ _lib.hydro_interpolate_regular_grid.restype = None
 # timestepping.c
 # ===================================================================
 
-_lib.hydro_domain_evolve.argtypes = [c_void_p, c_double, c_double, c_char_p]
+_lib.hydro_domain_evolve.argtypes = [c_void_p, c_double, c_double]
 _lib.hydro_domain_evolve.restype = c_int
 
 _lib.hydro_evolve_one_euler_step.argtypes = [c_void_p, c_double, c_double]

@@ -337,6 +337,94 @@ hydro_sww_t* hydro_sww_create(
 }
 
 /* ==========================================================================
+ * Open existing SWW for append
+ * ========================================================================== */
+
+hydro_sww_t* hydro_sww_open(
+    const char* path,
+    const hydro_domain_t* domain)
+{
+    hydro_sww_t* sww;
+    int ncid, ret;
+    size_t n_timesteps_existing;
+
+    ret = nc_open(path, NC_WRITE, &ncid);
+    if (ret != NC_NOERR) { NCERR(ret); return NULL; }
+
+    sww = (hydro_sww_t*)calloc(1, sizeof(hydro_sww_t));
+    if (!sww) { nc_close(ncid); return NULL; }
+    sww->ncid = ncid;
+
+    /* Read existing timestep count */
+    int time_dim_id;
+    nc_inq_dimid(ncid, "number_of_timesteps", &time_dim_id);
+    nc_inq_dimlen(ncid, time_dim_id, &n_timesteps_existing);
+    sww->n_timesteps = (int)n_timesteps_existing;
+
+    /* Get variable IDs */
+    nc_inq_varid(ncid, "time",            &sww->time_var_id);
+    nc_inq_varid(ncid, "stage",           &sww->stage_var_id);
+    nc_inq_varid(ncid, "stage_range",     &sww->stage_range_id);
+    nc_inq_varid(ncid, "xmomentum",       &sww->xmom_var_id);
+    nc_inq_varid(ncid, "xmomentum_range", &sww->xmom_range_id);
+    nc_inq_varid(ncid, "ymomentum",       &sww->ymom_var_id);
+    nc_inq_varid(ncid, "ymomentum_range", &sww->ymom_range_id);
+
+    /* Read starttime */
+    {
+        double st = 0.0;
+        nc_get_att_double(ncid, NC_GLOBAL, "starttime", &st);
+        sww->starttime = st;
+    }
+
+    /* Rebuild vertex deduplication tables (same logic as create) */
+    hydro_int N = domain->number_of_elements;
+    hydro_int n_exp = 3 * N;
+    hydro_int hash_size = n_exp * 2;
+    vert_hash_entry_t* hash = (vert_hash_entry_t*)calloc((size_t)hash_size,
+        sizeof(vert_hash_entry_t));
+
+    sww->exp_to_unique = (hydro_int*)malloc((size_t)n_exp * sizeof(hydro_int));
+    hydro_int n_unique = 0;
+
+    for (hydro_int ei = 0; ei < n_exp; ei++) {
+        double x = domain->vertex_coordinates[2*ei];
+        double y = domain->vertex_coordinates[2*ei + 1];
+        hydro_int hi = vert_hash(x, y, hash_size);
+
+        while (hash[hi].used) {
+            if (fabs(hash[hi].x - x) < 1e-10 && fabs(hash[hi].y - y) < 1e-10) {
+                sww->exp_to_unique[ei] = hash[hi].unique_id;
+                break;
+            }
+            hi = (hi + 1) % hash_size;
+        }
+        if (!hash[hi].used) {
+            hash[hi].x = x; hash[hi].y = y;
+            hash[hi].unique_id = n_unique;
+            hash[hi].used = 1;
+            sww->exp_to_unique[ei] = n_unique;
+            n_unique++;
+        }
+    }
+    free(hash);
+
+    sww->unique_count = (hydro_int*)calloc((size_t)n_unique, sizeof(hydro_int));
+    for (hydro_int ei = 0; ei < n_exp; ei++) {
+        sww->unique_count[sww->exp_to_unique[ei]]++;
+    }
+
+    sww->n_points   = n_unique;
+    sww->n_volumes  = N;
+    sww->n_expanded = n_exp;
+
+    printf("hydro: opened SWW '%s' for append (n_timesteps=%d, n_points=%lld)\n",
+           path, sww->n_timesteps, (long long)n_unique);
+
+    return sww;
+}
+
+/* ==========================================================================
  * Average expanded per-vertex data to unique vertices
  * ========================================================================== */
 static void avg_to_unique(const hydro_sww_t* sww, const double* expanded,

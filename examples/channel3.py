@@ -60,6 +60,8 @@ print(f"Elevation range: [{elevation.min():.3f}, {elevation.max():.3f}]")
 # Create domain
 # ---------------------------------------------------------------------------
 domain = Domain(vertices, triangles, btags, bedges)
+domain.set_name('channel3')
+domain.set_output_dir(os.path.join(os.path.dirname(__file__), '..'))
 
 domain.set_elevation(elevation)
 domain.set_friction(np.full(n_tri, 0.01))

@@ -8,12 +8,14 @@
 extern "C" {
 #endif
 
-/** Evolve domain from current time to finaltime, writing to optional SWW file. */
+/** Evolve domain from current time to finaltime.
+ *  SWW output is written to domain->output_dir/domain->name.sww automatically
+ *  if domain->name is set.  If the SWW file already exists, new timesteps
+ *  are appended. */
 int hydro_domain_evolve(
     hydro_domain_t* domain,
     double          finaltime,
-    double          yieldstep,
-    const char*     output_sww_path);
+    double          yieldstep);
 
 /** Single Euler step. */
 void hydro_evolve_one_euler_step(
