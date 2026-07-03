@@ -158,6 +158,14 @@ static void hydro_compute_gradients(
     for (hydro_int k = 0; k < N; k++) {
         hydro_int k3 = 3 * k;
 
+        /* Dry cell: no gradient (use first-order) */
+        if (domain->height_centroid_values &&
+            domain->height_centroid_values[k] < domain->minimum_allowed_height) {
+            x_gradient[k] = 0.0;
+            y_gradient[k] = 0.0;
+            continue;
+        }
+
         if (domain->number_of_boundaries[k] < 2) {
             /* Two or three true neighbours — fit a plane */
             hydro_int k0 = domain->surrogate_neighbours[k3];

@@ -51,7 +51,7 @@ domain.set_stage(elevation.copy())          # dry bed
 domain.set_xmomentum(np.zeros(n_tri))
 domain.set_ymomentum(np.zeros(n_tri))
 
-domain.set_parameter("CFL", 1.0)
+domain.set_parameter("CFL", 0.9)
 domain.set_parameter("spatial_order", 1)
 domain.set_parameter("timestepping_method", EULER)
 
