@@ -70,7 +70,7 @@ void hydro_boundary_evaluate_reflective_segment(
     const hydro_int* edge_ids)
 {
     #ifdef _OPENMP
-    #pragma omp parallel for schedule(static)
+    #pragma omp parallel for simd schedule(static)
     #endif
     for (hydro_int k = 0; k < num_edges; k++) {
         hydro_int seg_id = edge_segment[k];
@@ -116,7 +116,7 @@ void hydro_boundary_evaluate_dirichlet_segment(
     const hydro_int* edge_ids, double stage)
 {
     #ifdef _OPENMP
-    #pragma omp parallel for schedule(static)
+    #pragma omp parallel for simd schedule(static)
     #endif
     for (hydro_int k = 0; k < num_edges; k++) {
         hydro_int seg_id = edge_segment[k];
@@ -148,7 +148,7 @@ void hydro_boundary_evaluate_transmissive_segment(
     double external_stage, int set_stage)
 {
     #ifdef _OPENMP
-    #pragma omp parallel for schedule(static)
+    #pragma omp parallel for simd schedule(static)
     #endif
     for (hydro_int k = 0; k < num_edges; k++) {
         hydro_int seg_id = edge_segment[k];
@@ -194,7 +194,7 @@ void hydro_boundary_evaluate_discharge_segment(
     double stage, double discharge)
 {
     #ifdef _OPENMP
-    #pragma omp parallel for schedule(static)
+    #pragma omp parallel for simd schedule(static)
     #endif
     for (hydro_int k = 0; k < num_edges; k++) {
         hydro_int seg_id = edge_segment[k];
@@ -228,7 +228,7 @@ void hydro_boundary_update(hydro_domain_t* domain) {
     if (bl == 0) return;
 
     #ifdef _OPENMP
-    #pragma omp parallel for schedule(static)
+    #pragma omp parallel for simd schedule(static)
     #endif
     for (hydro_int bi = 0; bi < bl; bi++) {
         hydro_int tag = domain->boundary_tags[bi];

@@ -88,7 +88,7 @@ void hydro_quantity_update(hydro_domain_t* domain, double timestep) {
     if (!domain->stage_centroid_values || !domain->stage_explicit_update) return;
 
     #ifdef _OPENMP
-    #pragma omp parallel for schedule(static)
+    #pragma omp parallel for simd schedule(static)
     #endif
     for (hydro_int k = 0; k < N; k++) {
         /* Stage */
@@ -106,7 +106,7 @@ void hydro_quantity_update(hydro_domain_t* domain, double timestep) {
 
     if (!domain->xmom_centroid_values || !domain->xmom_explicit_update) return;
     #ifdef _OPENMP
-    #pragma omp parallel for schedule(static)
+    #pragma omp parallel for simd schedule(static)
     #endif
     for (hydro_int k = 0; k < N; k++) {
         double xm = domain->xmom_centroid_values[k];
@@ -123,7 +123,7 @@ void hydro_quantity_update(hydro_domain_t* domain, double timestep) {
 
     if (!domain->ymom_centroid_values || !domain->ymom_explicit_update) return;
     #ifdef _OPENMP
-    #pragma omp parallel for schedule(static)
+    #pragma omp parallel for simd schedule(static)
     #endif
     for (hydro_int k = 0; k < N; k++) {
         double ym = domain->ymom_centroid_values[k];
@@ -153,7 +153,7 @@ static void hydro_compute_gradients(
     hydro_int N = domain->number_of_elements;
 
     #ifdef _OPENMP
-    #pragma omp parallel for schedule(static)
+    #pragma omp parallel for simd schedule(static)
     #endif
     for (hydro_int k = 0; k < N; k++) {
         hydro_int k3 = 3 * k;
@@ -228,7 +228,7 @@ static void hydro_extrapolate_from_gradient(
     hydro_int N = domain->number_of_elements;
 
     #ifdef _OPENMP
-    #pragma omp parallel for schedule(static)
+    #pragma omp parallel for simd schedule(static)
     #endif
     for (hydro_int k = 0; k < N; k++) {
         hydro_int k3 = 3 * k;
@@ -278,7 +278,7 @@ static void hydro_limit_edges(
     hydro_int N = domain->number_of_elements;
 
     #ifdef _OPENMP
-    #pragma omp parallel for schedule(static)
+    #pragma omp parallel for simd schedule(static)
     #endif
     for (hydro_int k = 0; k < N; k++) {
         hydro_int k3 = 3 * k;
@@ -413,7 +413,7 @@ void hydro_quantity_extrapolate_second_order_edge(hydro_domain_t* domain) {
     /* Bed from height + stage */
     hydro_int N = domain->number_of_elements;
     #ifdef _OPENMP
-    #pragma omp parallel for schedule(static)
+    #pragma omp parallel for simd schedule(static)
     #endif
     for (hydro_int k = 0; k < N; k++) {
         hydro_int k3 = 3 * k;
@@ -450,7 +450,7 @@ void hydro_quantity_extrapolate_first_order(hydro_domain_t* domain) {
     for (int qi = 0; qi < 5; qi++) {
         if (!*q[qi].c) continue;
         #ifdef _OPENMP
-        #pragma omp parallel for schedule(static)
+        #pragma omp parallel for simd schedule(static)
         #endif
         for (hydro_int k = 0; k < N; k++) {
             hydro_int k3 = 3 * k;
@@ -488,7 +488,7 @@ void hydro_quantity_distribute_edges_to_vertices(hydro_domain_t* domain) {
     for (int qi = 0; qi < 5; qi++) {
         if (!q[qi].e || !q[qi].v) continue;
         #ifdef _OPENMP
-        #pragma omp parallel for schedule(static)
+        #pragma omp parallel for simd schedule(static)
         #endif
         for (hydro_int k = 0; k < N; k++) {
             hydro_int k3 = 3 * k;
@@ -508,7 +508,7 @@ void hydro_quantity_backup(hydro_domain_t* domain) {
     if (!domain->stage_backup_values || !domain->stage_centroid_values) return;
 
     #ifdef _OPENMP
-    #pragma omp parallel for schedule(static)
+    #pragma omp parallel for simd schedule(static)
     #endif
     for (hydro_int k = 0; k < N; k++) {
         domain->stage_backup_values[k] = domain->stage_centroid_values[k];
@@ -522,7 +522,7 @@ void hydro_quantity_saxpy(hydro_domain_t* domain, double a, double b, double c) 
     if (!domain->stage_backup_values || !domain->stage_centroid_values) return;
 
     #ifdef _OPENMP
-    #pragma omp parallel for schedule(static)
+    #pragma omp parallel for simd schedule(static)
     #endif
     for (hydro_int k = 0; k < N; k++) {
         domain->stage_centroid_values[k] =
@@ -575,7 +575,7 @@ void hydro_quantity_update_derived(hydro_domain_t* domain) {
             (double*)calloc((size_t)n_edges, sizeof(double));
 
     #ifdef _OPENMP
-    #pragma omp parallel for schedule(static)
+    #pragma omp parallel for simd schedule(static)
     #endif
     for (hydro_int k = 0; k < N; k++) {
         double h = domain->stage_centroid_values[k]

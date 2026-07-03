@@ -219,7 +219,7 @@ double hydro_compute_fluxes_central(
     /* Reset explicit updates and compute fluxes per triangle */
     #ifdef _OPENMP
     #pragma omp parallel for schedule(static) \
-        reduction(min:local_timestep) reduction(+:boundary_flux_sum)
+        firstprivate(N, g, epsilon, low_froude) reduction(min:local_timestep) reduction(+:boundary_flux_sum)
     #endif
     for (hydro_int k = 0; k < N; k++) {
         hydro_int k3 = 3 * k;
