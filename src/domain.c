@@ -86,6 +86,14 @@ hydro_domain_t* hydro_domain_create(hydro_int n_nodes, hydro_int n_triangles) {
     d->yieldstep_counter = 0;
     d->step           = 0;
 
+    /* ---- Geo-reference defaults ---- */
+    d->xllcorner = 0.0;
+    d->yllcorner = 0.0;
+    d->zone = -1;
+    strcpy(d->datum, "wgs84");
+    strcpy(d->projection, "UTM");
+    strcpy(d->units, "m");
+
     /* ---- Mesh geometry (allocated now, filled by set_geometry) ---- */
     d->vertex_coordinates   = alloc_double(n_edges * 2);
     d->edge_coordinates     = alloc_double(n_edges * 2);
@@ -537,6 +545,9 @@ void hydro_domain_set_parameter(
     else if (strcmp(name, "timestepping_method") == 0) d->timestepping_method = (hydro_int)value;
     else if (strcmp(name, "beta_w") == 0)           d->beta_w = value;
     else if (strcmp(name, "optimise_dry_cells") == 0) d->optimise_dry_cells = (hydro_int)value;
+    else if (strcmp(name, "xllcorner") == 0)        d->xllcorner = value;
+    else if (strcmp(name, "yllcorner") == 0)        d->yllcorner = value;
+    else if (strcmp(name, "zone") == 0)             d->zone = (hydro_int)value;
     else {
         fprintf(stderr, "hydro: unknown parameter '%s'\n", name);
     }

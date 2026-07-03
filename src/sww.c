@@ -156,6 +156,27 @@ hydro_sww_t* hydro_sww_create(
     write_global_attr(ncid, "revision_number", "None");
     write_global_attr(ncid, "anuga_version", "hydro_core_0.1.0");
 
+    /* Geo-reference attributes (matching ANUGA convention) */
+    write_global_attr_double(ncid, "xllcorner", domain->xllcorner);
+    write_global_attr_double(ncid, "yllcorner", domain->yllcorner);
+    {
+        char buf[32];
+        snprintf(buf, sizeof(buf), "%lld", (long long)domain->zone);
+        write_global_attr(ncid, "zone", buf);
+    }
+    write_global_attr(ncid, "datum", domain->datum);
+    write_global_attr(ncid, "projection", domain->projection);
+    write_global_attr(ncid, "units", domain->units);
+    {
+        char buf[32];
+        int fe = 500000, fn = (starttime != starttime) ? 0 : 10000000;
+        snprintf(buf, sizeof(buf), "%d", fe);
+        write_global_attr(ncid, "false_easting", buf);
+        snprintf(buf, sizeof(buf), "%d", fn);
+        write_global_attr(ncid, "false_northing", buf);
+    }
+    write_global_attr(ncid, "hemisphere", "southern");
+
     /* ==================================================================
      * Dimensions — matching ANUGA exactly
      * ================================================================== */

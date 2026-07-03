@@ -173,6 +173,14 @@ typedef struct {
     hydro_int yieldstep_counter;        /* steps since last yield */
     hydro_int step;                     /* total step count */
 
+    /* ---- Geo-reference (for SWW output) ---- */
+    double xllcorner;                   /* X origin of local coords in UTM */
+    double yllcorner;                   /* Y origin of local coords in UTM */
+    hydro_int zone;                     /* UTM zone (default -1 = none) */
+    char datum[32];                     /* e.g. "wgs84" */
+    char projection[32];                /* e.g. "UTM" */
+    char units[16];                     /* e.g. "m" */
+
     /* ---- Flow algorithm ---- */
     hydro_int spatial_order;            /* 1 or 2 */
     hydro_int timestepping_method;      /* 1=Euler, 2=RK2, 3=RK3 */
