@@ -135,6 +135,7 @@ int hydro_domain_evolve(
 
         /* Do initial extrapolation and store initial timestep */
         hydro_quantity_extrapolate_first_order(domain);
+        hydro_quantity_distribute_edges_to_vertices(domain);
         hydro_sww_store_timestep(sww, domain, 0.0);
     }
 
@@ -162,8 +163,10 @@ int hydro_domain_evolve(
         /* Update derived quantities (height, velocity from conserved) */
         hydro_quantity_update_derived(domain);
 
-        /* Re-extrapolate centroid→edges→vertices for SWW output */
+        /* Re-extrapolate for SWW output: centroid→edges, then
+         * edge→vertex averaging for C0-continuous vertex values */
         hydro_quantity_extrapolate_first_order(domain);
+        hydro_quantity_distribute_edges_to_vertices(domain);
 
         /* Store to SWW at yieldstep intervals */
         if (sww && yieldstep > 0) {
