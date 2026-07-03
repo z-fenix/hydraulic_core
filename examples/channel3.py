@@ -6,6 +6,9 @@ A longer (40 m) channel at higher resolution (dx = dy = 0.1 m).
 The right boundary switches from reflective to outflow once water
 passes the constriction.
 
+Uses two-phase evolve (like channel2) to avoid per-yieldstep SWW
+open/append overhead on the 80 000-triangle mesh.
+
 Ported from: anuga_core/examples/simple_examples/channel3.py
 """
 
@@ -69,12 +72,12 @@ domain.set_stage(elevation.copy())          # dry bed
 domain.set_xmomentum(np.zeros(n_tri))
 domain.set_ymomentum(np.zeros(n_tri))
 
-domain.set_parameter("CFL", 1.0)
+domain.set_parameter("CFL", 0.9)
 domain.set_parameter("spatial_order", 1)
 domain.set_parameter("timestepping_method", EULER)
 
 # ---------------------------------------------------------------------------
-# Boundary conditions
+# Boundary conditions — start with reflective right wall
 # ---------------------------------------------------------------------------
 domain.set_boundary(1, HYDRO_BC_DIRICHLET, stage=0.4)     # left — inflow
 domain.set_boundary(2, HYDRO_BC_REFLECTIVE)               # right — wall (initially)
@@ -82,28 +85,28 @@ domain.set_boundary(3, HYDRO_BC_REFLECTIVE)               # top — wall
 domain.set_boundary(4, HYDRO_BC_REFLECTIVE)               # bottom — wall
 
 # ---------------------------------------------------------------------------
-# Evolve with dynamic boundary switching
+# Two-phase evolve (avoids per-yieldstep SWW overhead on large meshes)
 # ---------------------------------------------------------------------------
-outflow_enabled = False
-yieldstep = 0.1
+yieldstep = 0.2
 finaltime = 25.0
+phase1_end = 15.0       # water should reach outlet by t=15s
 
 t0 = time.time()
-current_time = 0.0
 
-while current_time < finaltime:
-    target = min(current_time + yieldstep, finaltime)
-    domain.evolve(finaltime=target, yieldstep=target - current_time)
-    current_time = target
+# Phase 1: Reflective right wall — let water build up behind constriction
+print(f"\nPhase 1: Reflective right wall (0 → {phase1_end} s)")
+domain.evolve(finaltime=phase1_end, yieldstep=yieldstep)
 
-    # Check stage near the outlet (x ≈ 37, y ≈ 2.5)
-    out_mask = (cent_x > 36.0) & (cent_x < 38.0) & (cent_y > 2.0) & (cent_y < 3.0)
-    if out_mask.any():
-        stage_pt = np.max(domain.get_stage()[out_mask])
-        if stage_pt > -3.3 and not outflow_enabled:
-            outflow_enabled = True
-            print(f"t={current_time:.1f}: Stage > -3.3 at outlet, stage_pt={stage_pt:.3f} — switching to outflow")
-            domain.set_boundary(2, HYDRO_BC_DIRICHLET, stage=-5.0)
+# Check if water has reached the outlet
+stage = domain.get_stage()
+out_mask = (cent_x > 36.0) & (cent_x < 38.0) & (cent_y > 2.0) & (cent_y < 3.0)
+stage_out = np.max(stage[out_mask]) if out_mask.any() else float('-inf')
+print(f"  Stage near outlet: max={stage_out:.3f}")
+
+# Phase 2: Switch to outflow, continue to finaltime
+print(f"Phase 2: Outflow right wall ({phase1_end} → {finaltime} s)")
+domain.set_boundary(2, HYDRO_BC_DIRICHLET, stage=-5.0)
+domain.evolve(finaltime=finaltime, yieldstep=yieldstep)
 
 elapsed = time.time() - t0
 
@@ -114,7 +117,7 @@ print(f"\nEvolved in {elapsed:.1f} s")
 print(f"Stage   : [{stage.min():.4f}, {stage.max():.4f}]")
 print(f"Height  : [{height.min():.4f}, {height.max():.4f}]")
 wet = height > 0.001
-volume = np.sum(height * (0.5 * dx * dy))  # triangle area = 0.5 * dx * dy
+volume = np.sum(height[wet] * (0.5 * dx * dy))
 print(f"Wet     : {wet.sum()} / {n_tri} triangles")
 print(f"Volume  : {volume:.4f} m^3")
 

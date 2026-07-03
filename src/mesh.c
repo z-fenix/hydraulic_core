@@ -120,8 +120,10 @@ int hydro_mesh_build_neighbour_structure(hydro_domain_t* d) {
     edge_key_t key;
     edge_val_t val;
     hydro_int boundary_count = 0;
+    /* Hash table must hold 3*M entries (one per directed edge).
+     * Use 4× to keep linear-probe chains short. */
     hydro_int table_size = HASH_TABLE_SIZE_INIT;
-    if (table_size < M * 2) table_size = M * 2;
+    if (table_size < n_edges * 4) table_size = n_edges * 4;
 
     /* ---- Step 0: Initialise ---- */
     for (k = 0; k < n_edges; k++) {
@@ -204,21 +206,9 @@ int hydro_mesh_build_neighbour_structure(hydro_domain_t* d) {
                 /* We count boundary edges in Step 3 */
             }
 
-            /* Handle boundary: set neighbour to -2 for edges shared only once */
-            ni = k3 + edge_id;
-            if (d->neighbours[ni] == -1) {
-                hydro_int idx2 = edge_hash(&key, ht->size);
-                hydro_int share_count = 0;
-                while (ht->entries[idx2].occupied) {
-                    edge_key_t* ek2 = &ht->entries[idx2].key;
-                    if (ek2->i == key.i && ek2->j == key.j) {
-                        share_count++;
-                    }
-                    idx2 = (idx2 + 1) % ht->size;
-                }
-                /* If only this triangle owns this edge, it's on the boundary */
-                /* neighbour stays -1 (boundary marker) */
-            }
+            /* If neighbour is still -1 after the lookup above,
+             * this edge belongs to only one triangle → boundary.
+             * The -1 marker is handled in Step 3 (surrogate neighbours). */
         }
     }
 
