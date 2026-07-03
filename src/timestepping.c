@@ -216,14 +216,14 @@ int hydro_domain_evolve(
         hydro_quantity_extrapolate_first_order(domain);
         hydro_quantity_distribute_edges_to_vertices(domain);
 
-        /* Check if file exists — append if so, create if not */
-        FILE* test = fopen(sww_path, "r");
-        if (test) {
-            fclose(test);
+        /* Create new SWW if evolving from t=0, otherwise append.
+         * This is a semantic check: simulation time at zero means a fresh
+         * start; any positive time means we are resuming a previous run. */
+        if (domain->time <= 0.0) {
+            sww = hydro_sww_create(sww_path, domain, domain->starttime);
+        } else {
             sww = hydro_sww_open(sww_path, domain);
             sww_is_append = 1;
-        } else {
-            sww = hydro_sww_create(sww_path, domain, domain->starttime);
         }
 
         if (!sww) {
