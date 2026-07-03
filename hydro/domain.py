@@ -75,10 +75,6 @@ class Domain:
         n_unique = len(vertices)
         n_tri = len(triangles)
 
-        # The C domain stores vertex_coordinates in EXPANDED (per-triangle)
-        # format: 3*n_tri entries.  Build from unique vertices.
-        expanded_vc = vertices[triangles.ravel()]  # (n_tri*3, 2)
-
         self.n_tri = n_tri
 
         self._handle = _core._lib.hydro_domain_create(
@@ -96,8 +92,9 @@ class Domain:
             bt = np.asarray(boundary_tags, dtype=np.int64)
             be = np.asarray(boundary_edges, dtype=np.int64)
 
+        # Pass UNIQUE vertices — C code expands internally via triangles array
         self._set_geometry(
-            np.asarray(expanded_vc, dtype=np.float64).ravel(),
+            np.asarray(vertices, dtype=np.float64).ravel(),
             np.asarray(triangles, dtype=np.int64).ravel(),
             bt, be,
         )

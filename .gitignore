@@ -4,3 +4,4 @@ __pycache__/
 *.sww
 *.o
 *.so
+__pycache__/
