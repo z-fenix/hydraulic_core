@@ -2,10 +2,10 @@
  * sww.c — SWW file writer using libnetcdf C API
  *
  * Produces byte-compatible SWW (NetCDF) files matching ANUGA output.
+ * Stores vertices uniquely with per-vertex averaged quantities.
  *
  * Adapted from:
  *   anuga/file/sww.py (Write_sww class)
- *   anuga/file/sts.py (Write_sts class)
  */
 
 #include "hydro/sww.h"
@@ -28,17 +28,37 @@ struct hydro_sww_t {
     int time_var_id;
     int stage_var_id, xmom_var_id, ymom_var_id;
     int stage_range_id, xmom_range_id, ymom_range_id;
-    hydro_int n_points;
+    hydro_int n_points;            /* number of UNIQUE vertices */
     hydro_int n_volumes;
-    hydro_int n_triangle_vertices;
     int n_timesteps;
     double starttime;
+
+    /* Vertex deduplication tables (built on create, used on store) */
+    hydro_int n_expanded;          /* 3 * n_volumes */
+    hydro_int* exp_to_unique;      /* [n_expanded] maps expanded idx → unique idx */
+    hydro_int* unique_count;       /* [n_points] count of expanded entries per unique */
 };
 
 /* NetCDF types matching ANUGA: float32 for quantities, float64 for time, int32 for volumes */
 #define SWW_FLOAT  NC_FLOAT
 #define SWW_DOUBLE NC_DOUBLE
 #define SWW_INT    NC_INT
+
+/* Hash entry for vertex deduplication */
+typedef struct {
+    double x, y;
+    hydro_int unique_id;
+    int used;
+} vert_hash_entry_t;
+
+static hydro_int vert_hash(double x, double y, hydro_int size) {
+    unsigned long long h = 14695981039346656037ULL;
+    unsigned char* p = (unsigned char*)&x;
+    for (int i = 0; i < 8; i++) { h ^= p[i]; h *= 1099511628211ULL; }
+    p = (unsigned char*)&y;
+    for (int i = 0; i < 8; i++) { h ^= p[i]; h *= 1099511628211ULL; }
+    return (hydro_int)(h % (unsigned long long)size);
+}
 
 static void write_global_attr(int ncid, const char* name, const char* value) {
     nc_put_att_text(ncid, NC_GLOBAL, name, strlen(value), value);
@@ -60,7 +80,6 @@ hydro_sww_t* hydro_sww_create(
     hydro_sww_t* sww;
     int ncid, ret;
 
-    /* Determine output path (append .sww if not present) */
     char filepath[4096];
     snprintf(filepath, sizeof(filepath), "%s", path);
     size_t len = strlen(filepath);
@@ -68,33 +87,64 @@ hydro_sww_t* hydro_sww_create(
         snprintf(filepath + len, sizeof(filepath) - len, ".sww");
     }
 
-    /* Create NetCDF file (64-bit offset format, matching ANUGA) */
     ret = nc_create(filepath, NC_CLOBBER | NC_64BIT_OFFSET, &ncid);
-    if (ret != NC_NOERR) {
-        NCERR(ret);
-        return NULL;
-    }
+    if (ret != NC_NOERR) { NCERR(ret); return NULL; }
 
     sww = (hydro_sww_t*)calloc(1, sizeof(hydro_sww_t));
-    if (!sww) {
-        nc_close(ncid);
-        return NULL;
-    }
+    if (!sww) { nc_close(ncid); return NULL; }
     sww->ncid = ncid;
     sww->starttime = starttime;
     sww->n_timesteps = 0;
 
     hydro_int N = domain->number_of_elements;
-    hydro_int n_vertices = 3 * N;  /* non-unique: 3 vertices per triangle */
-    hydro_int n_points = n_vertices;
+    hydro_int n_exp = 3 * N;
 
+    /* ==================================================================
+     * Deduplicate expanded vertex_coordinates → unique vertices
+     * ================================================================== */
+    hydro_int hash_size = n_exp * 2;
+    vert_hash_entry_t* hash = (vert_hash_entry_t*)calloc((size_t)hash_size,
+        sizeof(vert_hash_entry_t));
+
+    sww->exp_to_unique = (hydro_int*)malloc((size_t)n_exp * sizeof(hydro_int));
+    hydro_int n_unique = 0;
+
+    for (hydro_int ei = 0; ei < n_exp; ei++) {
+        double x = domain->vertex_coordinates[2*ei];
+        double y = domain->vertex_coordinates[2*ei + 1];
+        hydro_int hi = vert_hash(x, y, hash_size);
+
+        /* Linear probe */
+        while (hash[hi].used) {
+            if (fabs(hash[hi].x - x) < 1e-10 && fabs(hash[hi].y - y) < 1e-10) {
+                sww->exp_to_unique[ei] = hash[hi].unique_id;
+                break;
+            }
+            hi = (hi + 1) % hash_size;
+        }
+        if (!hash[hi].used) {
+            hash[hi].x = x; hash[hi].y = y;
+            hash[hi].unique_id = n_unique;
+            hash[hi].used = 1;
+            sww->exp_to_unique[ei] = n_unique;
+            n_unique++;
+        }
+    }
+    free(hash);
+
+    /* Count how many expanded entries per unique vertex */
+    sww->unique_count = (hydro_int*)calloc((size_t)n_unique, sizeof(hydro_int));
+    for (hydro_int ei = 0; ei < n_exp; ei++) {
+        sww->unique_count[sww->exp_to_unique[ei]]++;
+    }
+
+    sww->n_points = n_unique;
     sww->n_volumes = N;
-    sww->n_triangle_vertices = domain->number_of_nodes;
-    sww->n_points = n_points;
+    sww->n_expanded = n_exp;
 
-    /* ======================================================================
-     * Global attributes (matching ANUGA SWW metadata)
-     * ====================================================================== */
+    /* ==================================================================
+     * Global attributes
+     * ================================================================== */
     write_global_attr(ncid, "institution", HYDRO_INSTITUTION);
     write_global_attr(ncid, "description",
         "Output from hydro_core SWW writer");
@@ -106,25 +156,22 @@ hydro_sww_t* hydro_sww_create(
     write_global_attr(ncid, "revision_number", "None");
     write_global_attr(ncid, "anuga_version", "hydro_core_0.1.0");
 
-    /* ======================================================================
-     * Dimensions
-     * ====================================================================== */
-    int dim_volumes, dim_tri_vertices, dim_vertices, dim_range;
-    int dim_points;
+    /* ==================================================================
+     * Dimensions — matching ANUGA exactly
+     * ================================================================== */
+    int dim_volumes, dim_vertices, dim_range, dim_points;
 
     nc_def_dim(ncid, "number_of_volumes", (size_t)N, &dim_volumes);
-    nc_def_dim(ncid, "number_of_triangle_vertices",
-               (size_t)domain->number_of_nodes, &dim_tri_vertices);
     nc_def_dim(ncid, "number_of_vertices", 3, &dim_vertices);
     nc_def_dim(ncid, "numbers_in_range", 2, &dim_range);
-    nc_def_dim(ncid, "number_of_points", (size_t)n_points, &dim_points);
+    nc_def_dim(ncid, "number_of_points", (size_t)n_unique, &dim_points);
 
     int dim_timesteps_unlim;
     nc_def_dim(ncid, "number_of_timesteps", NC_UNLIMITED, &dim_timesteps_unlim);
 
-    /* ======================================================================
+    /* ==================================================================
      * Variables: geometry
-     * ====================================================================== */
+     * ================================================================== */
     int x_var_id, y_var_id, vol_var_id;
 
     nc_def_var(ncid, "x", SWW_FLOAT, 1, &dim_points, &x_var_id);
@@ -133,163 +180,161 @@ hydro_sww_t* hydro_sww_create(
     int vol_dims[2] = {dim_volumes, dim_vertices};
     nc_def_var(ncid, "volumes", SWW_INT, 2, vol_dims, &vol_var_id);
 
-    /* ======================================================================
-     * Variables: static quantities
-     * ====================================================================== */
-    int elev_var_id, elev_range_id;
-    int fric_var_id, fric_range_id;
+    /* ==================================================================
+     * Variables: static quantities (per unique vertex)
+     * ================================================================== */
+    int elev_var_id, elev_range_id, fric_var_id, fric_range_id;
 
     nc_def_var(ncid, "elevation", SWW_FLOAT, 1, &dim_points, &elev_var_id);
-    nc_def_var(ncid, "elevation_range", SWW_FLOAT, 1, &dim_range,
-               &elev_range_id);
-
+    nc_def_var(ncid, "elevation_range", SWW_FLOAT, 1, &dim_range, &elev_range_id);
     nc_def_var(ncid, "friction", SWW_FLOAT, 1, &dim_points, &fric_var_id);
-    nc_def_var(ncid, "friction_range", SWW_FLOAT, 1, &dim_range,
-               &fric_range_id);
+    nc_def_var(ncid, "friction_range", SWW_FLOAT, 1, &dim_range, &fric_range_id);
 
-    /* ======================================================================
-     * Variables: dynamic quantities (time-varying)
-     * ====================================================================== */
+    /* ==================================================================
+     * Variables: dynamic quantities
+     * ================================================================== */
     int stage_dims[2] = {dim_timesteps_unlim, dim_points};
     int range_dims[1] = {dim_range};
 
     nc_def_var(ncid, "stage", SWW_FLOAT, 2, stage_dims, &sww->stage_var_id);
-    nc_def_var(ncid, "stage_range", SWW_FLOAT, 1, range_dims,
-               &sww->stage_range_id);
+    nc_def_var(ncid, "stage_range", SWW_FLOAT, 1, range_dims, &sww->stage_range_id);
+    nc_def_var(ncid, "xmomentum", SWW_FLOAT, 2, stage_dims, &sww->xmom_var_id);
+    nc_def_var(ncid, "xmomentum_range", SWW_FLOAT, 1, range_dims, &sww->xmom_range_id);
+    nc_def_var(ncid, "ymomentum", SWW_FLOAT, 2, stage_dims, &sww->ymom_var_id);
+    nc_def_var(ncid, "ymomentum_range", SWW_FLOAT, 1, range_dims, &sww->ymom_range_id);
 
-    nc_def_var(ncid, "xmomentum", SWW_FLOAT, 2, stage_dims,
-               &sww->xmom_var_id);
-    nc_def_var(ncid, "xmomentum_range", SWW_FLOAT, 1, range_dims,
-               &sww->xmom_range_id);
-
-    nc_def_var(ncid, "ymomentum", SWW_FLOAT, 2, stage_dims,
-               &sww->ymom_var_id);
-    nc_def_var(ncid, "ymomentum_range", SWW_FLOAT, 1, range_dims,
-               &sww->ymom_range_id);
-
-    /* Time variable */
     int time_dims[1] = {dim_timesteps_unlim};
     nc_def_var(ncid, "time", SWW_DOUBLE, 1, time_dims, &sww->time_var_id);
 
-    /* End define mode */
     ret = nc_enddef(ncid);
-    if (ret != NC_NOERR) {
-        NCERR(ret);
-        free(sww);
-        nc_close(ncid);
-        return NULL;
+    if (ret != NC_NOERR) { NCERR(ret); free(sww); nc_close(ncid); return NULL; }
+
+    /* ==================================================================
+     * Write unique x, y coordinates
+     * ================================================================== */
+    float* x_data = (float*)malloc((size_t)n_unique * sizeof(float));
+    float* y_data = (float*)malloc((size_t)n_unique * sizeof(float));
+    /* Initialise to 0 for vertices that might not be populated */
+    for (hydro_int i = 0; i < n_unique; i++) { x_data[i] = 0.0f; y_data[i] = 0.0f; }
+
+    for (hydro_int ei = 0; ei < n_exp; ei++) {
+        hydro_int ui = sww->exp_to_unique[ei];
+        x_data[ui] = (float)domain->vertex_coordinates[2*ei];
+        y_data[ui] = (float)domain->vertex_coordinates[2*ei + 1];
     }
-
-    /* ======================================================================
-     * Write geometry data
-     * ====================================================================== */
-
-    /* Build per-vertex x, y arrays (non-unique: 3 * N entries) */
-    float* x_data = (float*)malloc((size_t)n_points * sizeof(float));
-    float* y_data = (float*)malloc((size_t)n_points * sizeof(float));
-
-    for (hydro_int k = 0; k < N; k++) {
-        hydro_int k3 = 3 * k;
-        for (int v = 0; v < 3; v++) {
-            hydro_int idx = k3 + v;
-            x_data[idx] = (float)domain->vertex_coordinates[2 * k3 + 2 * v];
-            y_data[idx] = (float)domain->vertex_coordinates[2 * k3 + 2 * v + 1];
-        }
-    }
-
     nc_put_var_float(ncid, x_var_id, x_data);
     nc_put_var_float(ncid, y_var_id, y_data);
-    free(x_data);
-    free(y_data);
+    free(x_data); free(y_data);
 
-    /* Write volumes (triangle connectivity) */
+    /* ==================================================================
+     * Write volumes (remapped to unique indices)
+     * ================================================================== */
     int* vol_data = (int*)malloc(3 * (size_t)N * sizeof(int));
     for (hydro_int k = 0; k < N; k++) {
         hydro_int k3 = 3 * k;
-        vol_data[k3]     = (int)domain->triangles[k3];
-        vol_data[k3 + 1] = (int)domain->triangles[k3 + 1];
-        vol_data[k3 + 2] = (int)domain->triangles[k3 + 2];
+        for (int v = 0; v < 3; v++) {
+            vol_data[k3 + v] = (int)sww->exp_to_unique[k3 + v];
+        }
     }
     size_t vol_start[2] = {0, 0};
     size_t vol_count[2] = {(size_t)N, 3};
     nc_put_vara_int(ncid, vol_var_id, vol_start, vol_count, vol_data);
     free(vol_data);
 
-    /* ======================================================================
-     * Write static quantities (elevation, friction)
-     * ====================================================================== */
-
-    /* Elevation at vertices */
-    float* elev_data = (float*)malloc((size_t)n_points * sizeof(float));
-    float elev_min = (float)HYDRO_MAX_FLOAT;
-    float elev_max = -(float)HYDRO_MAX_FLOAT;
-
+    /* ==================================================================
+     * Write elevation (averaged to unique vertices)
+     * ================================================================== */
+    float* elev_data = (float*)calloc((size_t)n_unique, sizeof(float));
     if (domain->bed_vertex_values) {
-        for (hydro_int i = 0; i < n_points; i++) {
-            float val = (float)domain->bed_vertex_values[i];
-            elev_data[i] = val;
-            if (val < elev_min) elev_min = val;
-            if (val > elev_max) elev_max = val;
+        for (hydro_int ei = 0; ei < n_exp; ei++) {
+            hydro_int ui = sww->exp_to_unique[ei];
+            elev_data[ui] += (float)domain->bed_vertex_values[ei];
         }
     } else if (domain->bed_centroid_values) {
-        /* If vertex values not available, use centroid values for each vertex */
         for (hydro_int k = 0; k < N; k++) {
             float val = (float)domain->bed_centroid_values[k];
             for (int v = 0; v < 3; v++) {
-                elev_data[3*k + v] = val;
+                hydro_int ui = sww->exp_to_unique[3*k + v];
+                elev_data[ui] += val;
             }
-            if (val < elev_min) elev_min = val;
-            if (val > elev_max) elev_max = val;
         }
-    } else {
-        /* No elevation set — write zeros */
-        elev_min = 0.0f;
-        elev_max = 0.0f;
     }
-
+    /* Average */
+    for (hydro_int i = 0; i < n_unique; i++) {
+        if (sww->unique_count[i] > 0) elev_data[i] /= (float)sww->unique_count[i];
+    }
     nc_put_var_float(ncid, elev_var_id, elev_data);
+
+    float elev_min = elev_data[0], elev_max = elev_data[0];
+    for (hydro_int i = 1; i < n_unique; i++) {
+        if (elev_data[i] < elev_min) elev_min = elev_data[i];
+        if (elev_data[i] > elev_max) elev_max = elev_data[i];
+    }
     float elev_range[2] = {elev_min, elev_max};
     nc_put_var_float(ncid, elev_range_id, elev_range);
+    free(elev_data);
 
-    /* Friction at vertices */
-    float* fric_data = (float*)malloc((size_t)n_points * sizeof(float));
-    float fric_min = (float)HYDRO_MAX_FLOAT;
-    float fric_max = -(float)HYDRO_MAX_FLOAT;
-
+    /* ==================================================================
+     * Write friction (averaged to unique vertices)
+     * ================================================================== */
+    float* fric_data = (float*)calloc((size_t)n_unique, sizeof(float));
     if (domain->friction_centroid_values) {
         for (hydro_int k = 0; k < N; k++) {
             float val = (float)domain->friction_centroid_values[k];
             for (int v = 0; v < 3; v++) {
-                fric_data[3*k + v] = val;
+                hydro_int ui = sww->exp_to_unique[3*k + v];
+                fric_data[ui] += val;
             }
-            if (val < fric_min) fric_min = val;
-            if (val > fric_max) fric_max = val;
         }
     } else {
-        /* Default friction */
-        for (hydro_int i = 0; i < n_points; i++) {
+        for (hydro_int i = 0; i < n_unique; i++) {
             fric_data[i] = (float)HYDRO_MANNING_DEFAULT;
         }
-        fric_min = fric_max = (float)HYDRO_MANNING_DEFAULT;
     }
-
+    for (hydro_int i = 0; i < n_unique; i++) {
+        if (sww->unique_count[i] > 0) fric_data[i] /= (float)sww->unique_count[i];
+    }
     nc_put_var_float(ncid, fric_var_id, fric_data);
+
+    float fric_min = fric_data[0], fric_max = fric_data[0];
+    for (hydro_int i = 1; i < n_unique; i++) {
+        if (fric_data[i] < fric_min) fric_min = fric_data[i];
+        if (fric_data[i] > fric_max) fric_max = fric_data[i];
+    }
     float fric_range[2] = {fric_min, fric_max};
     nc_put_var_float(ncid, fric_range_id, fric_range);
     free(fric_data);
-    free(elev_data);
 
-    /* ======================================================================
-     * Initialise dynamic quantity ranges
-     * ====================================================================== */
+    /* Initialise dynamic quantity ranges */
     float init_range[2] = {(float)HYDRO_MAX_FLOAT, -(float)HYDRO_MAX_FLOAT};
     nc_put_var_float(ncid, sww->stage_range_id, init_range);
     nc_put_var_float(ncid, sww->xmom_range_id, init_range);
     nc_put_var_float(ncid, sww->ymom_range_id, init_range);
 
     nc_sync(ncid);
-
     return sww;
+}
+
+/* ==========================================================================
+ * Average expanded per-vertex data to unique vertices
+ * ========================================================================== */
+static void avg_to_unique(const hydro_sww_t* sww, const double* expanded,
+                           float* unique_out) {
+    hydro_int n_exp = sww->n_expanded;
+    hydro_int n_uniq = sww->n_points;
+
+    /* Reset */
+    for (hydro_int i = 0; i < n_uniq; i++) unique_out[i] = 0.0f;
+
+    if (expanded) {
+        for (hydro_int ei = 0; ei < n_exp; ei++) {
+            unique_out[sww->exp_to_unique[ei]] += (float)expanded[ei];
+        }
+    }
+    for (hydro_int i = 0; i < n_uniq; i++) {
+        if (sww->unique_count[i] > 0)
+            unique_out[i] /= (float)sww->unique_count[i];
+    }
 }
 
 int hydro_sww_store_timestep(
@@ -299,8 +344,7 @@ int hydro_sww_store_timestep(
 {
     if (!sww) return -1;
 
-    hydro_int N = domain->number_of_elements;
-    hydro_int n_points = sww->n_points;
+    hydro_int n_uniq = sww->n_points;
     int ncid = sww->ncid;
     int ti = sww->n_timesteps;
 
@@ -310,97 +354,43 @@ int hydro_sww_store_timestep(
     size_t time_count[1] = {1};
     nc_put_vara_double(ncid, sww->time_var_id, time_start, time_count, &time_val);
 
-    /* Build and write stage, xmomentum, ymomentum at vertices */
-    float* data = (float*)malloc((size_t)n_points * sizeof(float));
-    float q_min, q_max;
+    float* uniq = (float*)malloc((size_t)n_uniq * sizeof(float));
+    size_t q_start[2] = {(size_t)ti, 0};
+    size_t q_count[2] = {1, (size_t)n_uniq};
 
     /* ---- Stage ---- */
-    q_min = (float)HYDRO_MAX_FLOAT;
-    q_max = -(float)HYDRO_MAX_FLOAT;
-    if (domain->stage_vertex_values) {
-        for (hydro_int i = 0; i < n_points; i++) {
-            float val = (float)domain->stage_vertex_values[i];
-            data[i] = val;
-            if (val < q_min) q_min = val;
-            if (val > q_max) q_max = val;
-        }
-    } else if (domain->stage_centroid_values) {
-        for (hydro_int k = 0; k < N; k++) {
-            float val = (float)domain->stage_centroid_values[k];
-            for (int v = 0; v < 3; v++) {
-                data[3*k + v] = val;
-            }
-            if (val < q_min) q_min = val;
-            if (val > q_max) q_max = val;
-        }
-    }
-
-    size_t q_start[2] = {(size_t)ti, 0};
-    size_t q_count[2] = {1, (size_t)n_points};
-    nc_put_vara_float(ncid, sww->stage_var_id, q_start, q_count, data);
-
-    /* Update stage range */
+    avg_to_unique(sww, domain->stage_vertex_values, uniq);
+    nc_put_vara_float(ncid, sww->stage_var_id, q_start, q_count, uniq);
+    /* Update range */
     float range_cur[2];
     nc_get_var_float(ncid, sww->stage_range_id, range_cur);
-    if (q_min < range_cur[0]) range_cur[0] = q_min;
-    if (q_max > range_cur[1]) range_cur[1] = q_max;
+    for (hydro_int i = 0; i < n_uniq; i++) {
+        if (uniq[i] < range_cur[0]) range_cur[0] = uniq[i];
+        if (uniq[i] > range_cur[1]) range_cur[1] = uniq[i];
+    }
     nc_put_var_float(ncid, sww->stage_range_id, range_cur);
 
     /* ---- Xmomentum ---- */
-    q_min = (float)HYDRO_MAX_FLOAT;
-    q_max = -(float)HYDRO_MAX_FLOAT;
-    if (domain->xmom_vertex_values) {
-        for (hydro_int i = 0; i < n_points; i++) {
-            float val = (float)domain->xmom_vertex_values[i];
-            data[i] = val;
-            if (val < q_min) q_min = val;
-            if (val > q_max) q_max = val;
-        }
-    } else if (domain->xmom_centroid_values) {
-        for (hydro_int k = 0; k < N; k++) {
-            float val = (float)domain->xmom_centroid_values[k];
-            for (int v = 0; v < 3; v++) {
-                data[3*k + v] = val;
-            }
-            if (val < q_min) q_min = val;
-            if (val > q_max) q_max = val;
-        }
-    }
-    nc_put_vara_float(ncid, sww->xmom_var_id, q_start, q_count, data);
-
+    avg_to_unique(sww, domain->xmom_vertex_values, uniq);
+    nc_put_vara_float(ncid, sww->xmom_var_id, q_start, q_count, uniq);
     nc_get_var_float(ncid, sww->xmom_range_id, range_cur);
-    if (q_min < range_cur[0]) range_cur[0] = q_min;
-    if (q_max > range_cur[1]) range_cur[1] = q_max;
+    for (hydro_int i = 0; i < n_uniq; i++) {
+        if (uniq[i] < range_cur[0]) range_cur[0] = uniq[i];
+        if (uniq[i] > range_cur[1]) range_cur[1] = uniq[i];
+    }
     nc_put_var_float(ncid, sww->xmom_range_id, range_cur);
 
     /* ---- Ymomentum ---- */
-    q_min = (float)HYDRO_MAX_FLOAT;
-    q_max = -(float)HYDRO_MAX_FLOAT;
-    if (domain->ymom_vertex_values) {
-        for (hydro_int i = 0; i < n_points; i++) {
-            float val = (float)domain->ymom_vertex_values[i];
-            data[i] = val;
-            if (val < q_min) q_min = val;
-            if (val > q_max) q_max = val;
-        }
-    } else if (domain->ymom_centroid_values) {
-        for (hydro_int k = 0; k < N; k++) {
-            float val = (float)domain->ymom_centroid_values[k];
-            for (int v = 0; v < 3; v++) {
-                data[3*k + v] = val;
-            }
-            if (val < q_min) q_min = val;
-            if (val > q_max) q_max = val;
-        }
-    }
-    nc_put_vara_float(ncid, sww->ymom_var_id, q_start, q_count, data);
-
+    avg_to_unique(sww, domain->ymom_vertex_values, uniq);
+    nc_put_vara_float(ncid, sww->ymom_var_id, q_start, q_count, uniq);
     nc_get_var_float(ncid, sww->ymom_range_id, range_cur);
-    if (q_min < range_cur[0]) range_cur[0] = q_min;
-    if (q_max > range_cur[1]) range_cur[1] = q_max;
+    for (hydro_int i = 0; i < n_uniq; i++) {
+        if (uniq[i] < range_cur[0]) range_cur[0] = uniq[i];
+        if (uniq[i] > range_cur[1]) range_cur[1] = uniq[i];
+    }
     nc_put_var_float(ncid, sww->ymom_range_id, range_cur);
 
-    free(data);
+    free(uniq);
     nc_sync(ncid);
 
     sww->n_timesteps++;
@@ -410,9 +400,9 @@ int hydro_sww_store_timestep(
 int hydro_sww_close(hydro_sww_t* sww) {
     if (!sww) return -1;
     int ret = nc_close(sww->ncid);
-    if (ret != NC_NOERR) {
-        NCERR(ret);
-    }
+    if (ret != NC_NOERR) { NCERR(ret); }
+    free(sww->exp_to_unique);
+    free(sww->unique_count);
     free(sww);
     return ret;
 }
