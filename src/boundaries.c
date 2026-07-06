@@ -95,6 +95,31 @@ void hydro_boundary_set_time_series(
         domain->boundary_time_series[boundary_tag].n_points = 0;
     }
     domain->boundary_time_series[boundary_tag].default_stage = default_stage;
+
+    /* Pre-compute cached geometric metadata (never changes during evolution). */
+    double total_width = 0.0;
+    double total_bed = 0.0;
+    hydro_int bed_count = 0;
+    for (hydro_int bi = 0; bi < domain->boundary_length; bi++) {
+        if (domain->boundary_tags[bi] == boundary_tag) {
+            hydro_int edge_idx = domain->boundary_edges[bi];
+            total_width += domain->edgelengths[edge_idx];
+
+            hydro_int k = edge_idx / 3;
+            hydro_int ei = edge_idx % 3;
+            /* Average bed of the three triangle vertices adjacent to this edge. */
+            total_bed += (domain->bed_edge_values[3*k + ei] +
+                          domain->bed_edge_values[(3*k + ei + 1) % (3*domain->number_of_elements)] +
+                          domain->bed_edge_values[(3*k + ei + 2) % (3*domain->number_of_elements)]) / 3.0;
+            bed_count++;
+        }
+    }
+    if (total_width < 1e-6) total_width = 1.0; /* fallback */
+    if (bed_count > 0) total_bed /= bed_count;
+    else               total_bed = 0.0;
+
+    domain->boundary_time_series[boundary_tag].total_width = total_width;
+    domain->boundary_time_series[boundary_tag].mean_bed = total_bed;
 }
 
 /* Linear interpolation: find index such that time <= t <= time[i+1] */
@@ -187,21 +212,14 @@ void hydro_boundary_update_time_series(
     /* Interpolate Q at current_time */
     double Q = linear_interp(ts->times, ts->q_values, ts->n_points, current_time);
 
-    /* Auto-derive effective channel width from boundary edge geometry:
-     * sum the lengths of all edges with this tag. */
-    double total_width = 0.0;
-    for (hydro_int bi = 0; bi < domain->boundary_length; bi++) {
-        if (domain->boundary_tags[bi] == boundary_tag) {
-            hydro_int edge_idx = domain->boundary_edges[bi];
-            total_width += domain->edgelengths[edge_idx];
-        }
-    }
-    if (total_width < 1e-6) total_width = 1.0; /* fallback */
+    /* Use cached geometric metadata (computed once at setup). */
+    double total_width = ts->total_width;
+    double mean_bed = ts->mean_bed;
 
-    /* Derive stage from Q — use bed = 0 (inflow boundaries typically
-     * connect to a reservoir; the bed elevation is handled by the mesh). */
+    /* Derive stage from Q — add actual terrain bed so the computed depth
+     * sits on top of the real elevation, not at datum 0. */
     double S = 0.01; /* default bed slope for Manning's equation */
-    double stage = q_to_stage(Q, 0.0, 0.03, total_width,
+    double stage = q_to_stage(Q, mean_bed, 0.03, total_width,
                               S, domain->g, ts->default_stage);
 
     /* Set boundary values — these will be used by hydro_boundary_update */

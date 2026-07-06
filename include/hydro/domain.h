@@ -196,11 +196,11 @@ typedef struct {
     hydro_int* boundary_tag_map;        /* [3*n_elements], per-edge tag (0=interior, >0=boundary) */
 
     /* Per-tag BC configuration (tag 0 = default reflective) */
-#define HYDRO_MAX_BOUNDARY_TAGS 128
-    hydro_int boundary_bc_type_tag[128]; /* BC type for each tag (index=tag) */
-    double   boundary_stage_tag[128];    /* stage value for Dirichlet/time BC */
-    double   boundary_xmom_tag[128];     /* x-momentum for Dirichlet BC */
-    double   boundary_ymom_tag[128];     /* y-momentum for Dirichlet BC */
+#define HYDRO_MAX_BOUNDARY_TAGS 16
+    hydro_int boundary_bc_type_tag[16]; /* BC type for each tag (index=tag) */
+    double   boundary_stage_tag[16];    /* stage value for Dirichlet/time BC */
+    double   boundary_xmom_tag[16];     /* x-momentum for Dirichlet BC */
+    double   boundary_ymom_tag[16];     /* y-momentum for Dirichlet BC */
 
     /* Per-tag time-series boundary data (HYDRO_BC_TIME_SERIES) */
     struct hydro_ts_data {
@@ -208,7 +208,9 @@ typedef struct {
         double* q_values;
         int     n_points;
         double  default_stage;
-    } boundary_time_series[128]; /* one per tag */
+        double  total_width;   /* cached channel width (m) */
+        double  mean_bed;      /* cached mean bed elevation (m) */
+    } boundary_time_series[16]; /* one per tag */
 
     /* ---- Kinematic viscosity geo-structure (built once, reused) ---- */
     hydro_int* geo_structure_indices;   /* [3*n_elements] column indices */

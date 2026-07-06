@@ -149,7 +149,7 @@ hydro_domain_t* hydro_domain_create(hydro_int n_nodes, hydro_int n_triangles) {
     d->boundary_tag_map = NULL;
 
     /* Initialize per-tag BC configuration: default = reflective (type=1) */
-    for (int i = 0; i < 128; i++) {
+    for (int i = 0; i < HYDRO_MAX_BOUNDARY_TAGS; i++) {
         d->boundary_bc_type_tag[i] = 1;      /* HYDRO_BC_REFLECTIVE */
         d->boundary_stage_tag[i]   = 0.0;
         d->boundary_xmom_tag[i]    = 0.0;
@@ -158,6 +158,8 @@ hydro_domain_t* hydro_domain_create(hydro_int n_nodes, hydro_int n_triangles) {
         d->boundary_time_series[i].q_values = NULL;
         d->boundary_time_series[i].n_points = 0;
         d->boundary_time_series[i].default_stage = 0.1;
+        d->boundary_time_series[i].total_width = 0.0;
+        d->boundary_time_series[i].mean_bed = 0.0;
     }
 
     d->geo_structure_indices = NULL;
@@ -255,7 +257,7 @@ void hydro_domain_destroy(hydro_domain_t* d) {
     free(d->allow_timestep_increase);
 
     /* Free per-tag time-series data */
-    for (int i = 0; i < 128; i++) {
+    for (int i = 0; i < HYDRO_MAX_BOUNDARY_TAGS; i++) {
         free(d->boundary_time_series[i].times);
         free(d->boundary_time_series[i].q_values);
     }
