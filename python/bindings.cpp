@@ -139,6 +139,55 @@ public:
                                    (hydro_bc_type_t)bc_type, &params);
     }
 
+    /**
+     * Set time-series boundary data for a tag.
+     *
+     * @param tag           Boundary tag (e.g. 1 for left/inflow)
+     * @param times         1-D array of time values (seconds)
+     * @param q_values      1-D array of discharge values (m^3/s)
+     * @param default_stage Fallback stage when Q is out of CSV range
+     */
+    void set_time_series_boundary(
+        int tag,
+        py::array_t<double> times,
+        py::array_t<double> q_values,
+        double default_stage = 0.1)
+    {
+        auto t_arr = times.unchecked<1>();
+        auto q_arr = q_values.unchecked<1>();
+        hydro_int n = (hydro_int)t_arr.shape(0);
+        if (n != (hydro_int)q_arr.shape(0))
+            throw std::runtime_error(
+                "set_time_series_boundary: times and q_values must have same length");
+        if (n <= 0)
+            throw std::runtime_error(
+                "set_time_series_boundary: need at least 1 data point");
+
+        hydro_boundary_set_time_series(
+            handle_, (hydro_int)tag,
+            times.data(), q_values.data(),
+            (int)n, default_stage);
+    }
+
+    /**
+     * Update time-series boundary values at current simulation time.
+     * Call this before each evolve yield if using HYDRO_BC_TIME_SERIES.
+     *
+     * @param tag           Boundary tag
+     * @param current_time  Current simulation time (pass domain.get_time())
+     * @param manning_n     Manning's roughness (0 = use default 0.03)
+     * @param channel_width Channel width (0 = auto-derive from boundary edge)
+     */
+    void update_time_series_boundary(
+        int tag,
+        double current_time,
+        double manning_n = 0.0,
+        double channel_width = 0.0)
+    {
+        hydro_boundary_update_time_series(
+            handle_, (hydro_int)tag, current_time, manning_n, channel_width);
+    }
+
     /* --- Evolution --- */
     void evolve(double finaltime, double yieldstep = 1.0) {
         hydro_quantity_update_derived(handle_);
@@ -195,6 +244,7 @@ PYBIND11_MODULE(_core, m) {
     m.attr("HYDRO_BC_TIME")          = 4;
     m.attr("HYDRO_BC_DIRICHLET_DISCHARGE") = 5;
     m.attr("HYDRO_BC_TRANSMISSIVE_STAGE")   = 6;
+    m.attr("HYDRO_BC_TIME_SERIES")    = 7;
 
     /* ---- Domain class ---- */
     py::class_<Domain>(m, "Domain")
@@ -248,6 +298,15 @@ boundary_edges : ndarray (B,) int64, optional
              py::arg("tag"), py::arg("bc_type"),
              py::arg("stage") = 0.0,
              py::arg("discharge") = 0.0)
+        .def("set_time_series_boundary", &Domain::set_time_series_boundary,
+             py::arg("tag"), py::arg("times"), py::arg("q_values"),
+             py::arg("default_stage") = 0.1,
+             "Set time-series inflow boundary data for a tag.")
+        .def("update_time_series_boundary", &Domain::update_time_series_boundary,
+             py::arg("tag"), py::arg("current_time"),
+             py::arg("manning_n") = 0.0,
+             py::arg("channel_width") = 0.0,
+             "Update time-series boundary values at current simulation time.")
 
         /* Evolution */
         .def("evolve", &Domain::evolve,

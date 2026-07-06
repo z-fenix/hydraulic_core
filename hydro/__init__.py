@@ -54,6 +54,7 @@ try:
         HYDRO_BC_TIME,
         HYDRO_BC_DIRICHLET_DISCHARGE,
         HYDRO_BC_TRANSMISSIVE_STAGE,
+        HYDRO_BC_TIME_SERIES,
     )
 except ModuleNotFoundError:
     import sys
@@ -72,3 +73,6 @@ except ModuleNotFoundError:
     raise
 
 __version__ = "0.1.0"
+
+# High-level Python wrappers (depend on _core being available)
+from hydro.time_series_boundary import TimeSeriesInflowBoundary

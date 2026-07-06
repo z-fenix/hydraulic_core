@@ -202,6 +202,14 @@ typedef struct {
     double   boundary_xmom_tag[128];     /* x-momentum for Dirichlet BC */
     double   boundary_ymom_tag[128];     /* y-momentum for Dirichlet BC */
 
+    /* Per-tag time-series boundary data (HYDRO_BC_TIME_SERIES) */
+    struct hydro_ts_data {
+        double* times;
+        double* q_values;
+        int     n_points;
+        double  default_stage;
+    } boundary_time_series[128]; /* one per tag */
+
     /* ---- Kinematic viscosity geo-structure (built once, reused) ---- */
     hydro_int* geo_structure_indices;   /* [3*n_elements] column indices */
     double*    geo_structure_values;    /* [3*n_elements] geometric coeffs */

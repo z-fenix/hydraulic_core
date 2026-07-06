@@ -18,6 +18,7 @@ typedef enum {
     HYDRO_BC_TIME          = 4,   /* time-varying stage, zero momentum   */
     HYDRO_BC_DIRICHLET_DISCHARGE = 5,  /* fixed stage + inward normal discharge */
     HYDRO_BC_TRANSMISSIVE_STAGE   = 6,  /* transmissive stage, zero momentum   */
+    HYDRO_BC_TIME_SERIES   = 7,   /* flow rate Q(t) → derive stage+mom   */
 } hydro_bc_type_t;
 
 /* Parameters for boundary conditions */
@@ -25,6 +26,14 @@ typedef struct {
     double stage;    /* external stage (m), used by Dirichlet/Time BCs */
     double wh0;      /* discharge in m^2/s, used by Dirichlet_discharge */
 } hydro_bc_params_t;
+
+/* Time-series boundary data — stores Q(t) for HYDRO_BC_TIME_SERIES */
+typedef struct {
+    double* times;      /* [n_points] time values (seconds) */
+    double* q_values;   /* [n_points] discharge values (m³/s) */
+    int     n_points;
+    double  default_stage; /* fallback stage when Q out of range */
+} hydro_time_series_t;
 
 #ifdef __cplusplus
 extern "C" {
@@ -50,6 +59,46 @@ void hydro_domain_set_boundary(
     hydro_int       boundary_tag,
     hydro_bc_type_t bc_type,
     const hydro_bc_params_t* bc_params);
+
+/**
+ * Set time-series boundary data for a specific tag.
+ *
+ * Stores Q(t) pairs; the boundary evaluator will interpolate Q at the
+ * current simulation time and derive stage + momentum from it.
+ *
+ * @param domain      The domain
+ * @param boundary_tag Tag whose BC to update
+ * @param times        Time array [n_points]
+ * @param q_values     Discharge array [n_points]
+ * @param n_points     Number of data points
+ * @param default_stage  Fallback stage when Q is out of range
+ */
+void hydro_boundary_set_time_series(
+    hydro_domain_t* domain,
+    hydro_int       boundary_tag,
+    const double*   times,
+    const double*   q_values,
+    int             n_points,
+    double          default_stage);
+
+/**
+ * Update stage/momentum boundary values for HYDRO_BC_TIME_SERIES
+ * at runtime.  Called each timestep — interpolates Q(current_time),
+ * derives stage from Q using Manning's equation, and sets
+ * boundary_stage_tag / boundary_xmom_tag / boundary_ymom_tag.
+ *
+ * @param domain      The domain
+ * @param boundary_tag Tag whose BC to update
+ * @param current_time  Current simulation time
+ * @param manning_n     Manning's roughness coefficient (0 = use default)
+ * @param channel_width Effective channel width (0 = use default)
+ */
+void hydro_boundary_update_time_series(
+    hydro_domain_t* domain,
+    hydro_int       boundary_tag,
+    double          current_time,
+    double          manning_n,
+    double          channel_width);
 
 /**
  * Update stage/height/momentum boundary values for Dirichlet/Time BCs

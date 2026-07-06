@@ -154,6 +154,10 @@ hydro_domain_t* hydro_domain_create(hydro_int n_nodes, hydro_int n_triangles) {
         d->boundary_stage_tag[i]   = 0.0;
         d->boundary_xmom_tag[i]    = 0.0;
         d->boundary_ymom_tag[i]    = 0.0;
+        d->boundary_time_series[i].times = NULL;
+        d->boundary_time_series[i].q_values = NULL;
+        d->boundary_time_series[i].n_points = 0;
+        d->boundary_time_series[i].default_stage = 0.1;
     }
 
     d->geo_structure_indices = NULL;
@@ -249,6 +253,12 @@ void hydro_domain_destroy(hydro_domain_t* d) {
     free(d->update_next_flux);
     free(d->update_extrapolation);
     free(d->allow_timestep_increase);
+
+    /* Free per-tag time-series data */
+    for (int i = 0; i < 128; i++) {
+        free(d->boundary_time_series[i].times);
+        free(d->boundary_time_series[i].q_values);
+    }
 
     free(d->boundary_tags);
     free(d->boundary_edges);
