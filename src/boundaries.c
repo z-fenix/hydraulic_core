@@ -177,7 +177,7 @@ static double q_to_stage(double Q, double bed, double manning_n,
 
 void hydro_boundary_update_time_series(
     hydro_domain_t* domain, hydro_int boundary_tag,
-    double current_time, double manning_n, double channel_width)
+    double current_time)
 {
     if (boundary_tag < 0 || boundary_tag >= HYDRO_MAX_BOUNDARY_TAGS) return;
 
@@ -187,10 +187,21 @@ void hydro_boundary_update_time_series(
     /* Interpolate Q at current_time */
     double Q = linear_interp(ts->times, ts->q_values, ts->n_points, current_time);
 
+    /* Auto-derive effective channel width from boundary edge geometry:
+     * sum the lengths of all edges with this tag. */
+    double total_width = 0.0;
+    for (hydro_int bi = 0; bi < domain->boundary_length; bi++) {
+        if (domain->boundary_tags[bi] == boundary_tag) {
+            hydro_int edge_idx = domain->boundary_edges[bi];
+            total_width += domain->edgelengths[edge_idx];
+        }
+    }
+    if (total_width < 1e-6) total_width = 1.0; /* fallback */
+
     /* Derive stage from Q — use bed = 0 (inflow boundaries typically
      * connect to a reservoir; the bed elevation is handled by the mesh). */
     double S = 0.01; /* default bed slope for Manning's equation */
-    double stage = q_to_stage(Q, 0.0, manning_n, channel_width,
+    double stage = q_to_stage(Q, 0.0, 0.03, total_width,
                               S, domain->g, ts->default_stage);
 
     /* Set boundary values — these will be used by hydro_boundary_update */
@@ -374,10 +385,8 @@ void hydro_boundary_update(hydro_domain_t* domain) {
         if (domain->boundary_bc_type_tag[tag] == 7) { /* HYDRO_BC_TIME_SERIES */
             struct hydro_ts_data* ts = &domain->boundary_time_series[tag];
             if (ts->n_points > 0) {
-                double manning_n = 0.03;
-                double channel_width = 0.0;
                 hydro_boundary_update_time_series(
-                    domain, (hydro_int)tag, domain->time, manning_n, channel_width);
+                    domain, (hydro_int)tag, domain->time);
             }
         }
     }

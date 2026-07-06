@@ -86,7 +86,6 @@ q_values = np.array([
 
 bc = TimeSeriesInflowBoundary(
     domain, tag=1, times=times, q_values=q_values,
-    manning_n=0.03, channel_width=width, manning_slope=0.1,
 )
 
 # ---------------------------------------------------------------------------

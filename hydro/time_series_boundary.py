@@ -18,23 +18,24 @@ Usage
 >>> bc.close()
 
 The boundary reads Q(t) from a CSV file (two columns: time, discharge),
-interpolates at each yield step, derives stage from Q using Manning's
-equation, and updates the C-layer boundary values before the next
-fluid step.
+interpolates at each yield step, and derives stage from Q using Manning's
+equation.  The effective channel width is auto-derived from the boundary
+edge geometry (sum of edge lengths for edges with the given tag).
 """
 
 import numpy as np
 from scipy.interpolate import interp1d
 
-from hydro._core import Domain, HYDRO_BC_TIME_SERIES
+from hydro._core import HYDRO_BC_TIME_SERIES
 
 
 class TimeSeriesInflowBoundary:
     """Apply a time-varying flow rate Q(t) as an inflow boundary condition.
 
     Reads Q(t) from a CSV file (two columns: time, discharge),
-    interpolates at each yield step, and derives stage + momentum
-    from the discharge using Manning's equation.
+    interpolates at each yield step, and derives stage from the
+    discharge using Manning's equation.  The effective channel width
+    is auto-derived from the boundary edge geometry.
 
     Parameters
     ----------
@@ -51,12 +52,6 @@ class TimeSeriesInflowBoundary:
         Direct discharge array (alternative to csv_file).
     default_stage : float, default 0.1
         Fallback stage (m) when Q is out of CSV range or Q <= 0.
-    manning_n : float, default 0.03
-        Manning's roughness coefficient.
-    channel_width : float, default 0
-        Effective channel width (m). 0 = auto-derive from boundary edge length.
-    manning_slope : float, default 0.01
-        Bed slope used in Manning's equation.
     """
 
     def __init__(
@@ -67,19 +62,10 @@ class TimeSeriesInflowBoundary:
         times: np.ndarray | None = None,
         q_values: np.ndarray | None = None,
         default_stage: float = 0.1,
-        manning_n: float = 0.03,
-        channel_width: float = 0.0,
-        manning_slope: float = 0.01,
     ):
         self._domain = domain
         self._tag = tag
         self._default_stage = default_stage
-        self._manning_n = manning_n
-        self._channel_width = channel_width
-        self._manning_slope = manning_slope
-        self._interp: interp1d | None = None
-        self._t_min: float = 0.0
-        self._t_max: float = 0.0
 
         if csv_file is not None:
             self._load_csv(csv_file)
@@ -118,7 +104,6 @@ class TimeSeriesInflowBoundary:
 
     def _load_csv(self, path: str) -> None:
         """Load time, Q from CSV (skip header if non-numeric)."""
-        # Read as strings first to detect headers
         raw_str = np.loadtxt(path, delimiter=',', dtype=str)
         if raw_str.ndim == 1:
             raw_str = raw_str.reshape(-1, 1)
@@ -155,17 +140,13 @@ class TimeSeriesInflowBoundary:
         """Update boundary values at the given time.
 
         If t is None, uses the domain's current time.
-        Delegates to the C layer which interpolates Q(t) and
-        derives stage via Manning's equation.
+        Delegates to the C layer which auto-derives channel width
+        from boundary edge geometry.
         """
         if t is None:
             t = self._domain.get_time()
 
-        self._domain.update_time_series_boundary(
-            self._tag, t,
-            manning_n=self._manning_n,
-            channel_width=self._channel_width,
-        )
+        self._domain.update_time_series_boundary(self._tag, t)
 
     def close(self) -> None:
         """Clean up resources."""

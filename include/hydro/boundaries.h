@@ -87,18 +87,17 @@ void hydro_boundary_set_time_series(
  * derives stage from Q using Manning's equation, and sets
  * boundary_stage_tag / boundary_xmom_tag / boundary_ymom_tag.
  *
+ * The effective channel width is auto-derived from the boundary edge
+ * geometry (sum of edgelengths for edges with this tag).
+ *
  * @param domain      The domain
  * @param boundary_tag Tag whose BC to update
  * @param current_time  Current simulation time
- * @param manning_n     Manning's roughness coefficient (0 = use default)
- * @param channel_width Effective channel width (0 = use default)
  */
 void hydro_boundary_update_time_series(
     hydro_domain_t* domain,
     hydro_int       boundary_tag,
-    double          current_time,
-    double          manning_n,
-    double          channel_width);
+    double          current_time);
 
 /**
  * Update stage/height/momentum boundary values for Dirichlet/Time BCs

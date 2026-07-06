@@ -196,7 +196,6 @@ class TestTimeSeriesInflowBoundary(unittest.TestCase):
 
         bc = TimeSeriesInflowBoundary(
             domain, tag=1, times=times, q_values=qs,
-            manning_n=0.03, channel_width=5.0, manning_slope=0.1,
         )
         try:
             domain.evolve(finaltime=1.0, yieldstep=0.25)

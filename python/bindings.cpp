@@ -171,21 +171,17 @@ public:
 
     /**
      * Update time-series boundary values at current simulation time.
-     * Call this before each evolve yield if using HYDRO_BC_TIME_SERIES.
+     * The effective channel width is auto-derived from boundary edge geometry.
      *
      * @param tag           Boundary tag
      * @param current_time  Current simulation time (pass domain.get_time())
-     * @param manning_n     Manning's roughness (0 = use default 0.03)
-     * @param channel_width Channel width (0 = auto-derive from boundary edge)
      */
     void update_time_series_boundary(
         int tag,
-        double current_time,
-        double manning_n = 0.0,
-        double channel_width = 0.0)
+        double current_time)
     {
         hydro_boundary_update_time_series(
-            handle_, (hydro_int)tag, current_time, manning_n, channel_width);
+            handle_, (hydro_int)tag, current_time);
     }
 
     /* --- Evolution --- */
@@ -304,8 +300,6 @@ boundary_edges : ndarray (B,) int64, optional
              "Set time-series inflow boundary data for a tag.")
         .def("update_time_series_boundary", &Domain::update_time_series_boundary,
              py::arg("tag"), py::arg("current_time"),
-             py::arg("manning_n") = 0.0,
-             py::arg("channel_width") = 0.0,
              "Update time-series boundary values at current simulation time.")
 
         /* Evolution */
