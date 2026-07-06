@@ -142,7 +142,7 @@ print(f"  Z mesh: [{elevation.min():.1f}, {elevation.max():.1f}]")
 # ---------------------------------------------------------------------------
 domain = Domain(vertices, triangles, btags, bedges)
 domain.set_name("merewether")
-domain.set_output_dir(os.path.dirname(os.path.dirname(_HERE)))  # examples/
+domain.set_output_dir(_HERE)  # examples/
 
 # UTM zone 56S
 domain.set_parameter("zone", -56)
