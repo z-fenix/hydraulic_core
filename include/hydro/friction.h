@@ -6,6 +6,7 @@
 
 #ifdef __cplusplus
 extern "C" {
+
 #endif
 
 void hydro_manning_friction_flat(hydro_domain_t* domain);

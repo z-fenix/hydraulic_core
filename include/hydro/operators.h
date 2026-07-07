@@ -7,6 +7,7 @@
 
 #ifdef __cplusplus
 extern "C" {
+
 #endif
 
 /* =========================================================================
@@ -25,23 +26,23 @@ void hydro_manning_friction_explicit(hydro_domain_t* domain);
  * ========================================================================= */
 
 void hydro_bed_shear_erosion_apply(hydro_domain_t* domain,
-                                    double threshold, double base,
-                                    const hydro_int* indices,
-                                    hydro_int num_indices);
+                                   double threshold, double base,
+                                   const hydro_int* indices,
+                                   hydro_int num_indices);
 
 /* =========================================================================
  * Set Stage / Elevation Operators
  * ========================================================================= */
 
 void hydro_set_stage(hydro_domain_t* domain,
-                      const double* stage_values,
-                      const hydro_int* indices,
-                      hydro_int num_indices);
+                     const double* stage_values,
+                     const hydro_int* indices,
+                     hydro_int num_indices);
 
 void hydro_set_elevation(hydro_domain_t* domain,
-                          const double* elev_values,
-                          const hydro_int* indices,
-                          hydro_int num_indices);
+                         const double* elev_values,
+                         const hydro_int* indices,
+                         hydro_int num_indices);
 
 /* =========================================================================
  * Kinematic Viscosity Operator — parabolic smoothing of velocity

@@ -6,6 +6,7 @@
 
 #ifdef __cplusplus
 extern "C" {
+
 #endif
 
 /**
@@ -23,7 +24,7 @@ void hydro_edge_precompute(hydro_domain_t* domain);
 
 double hydro_compute_fluxes_central(
     hydro_domain_t* domain,
-    double          evolve_max_timestep);
+    double evolve_max_timestep);
 
 /**
  * Central-upwind flux function for a single edge.
@@ -47,19 +48,19 @@ double hydro_compute_fluxes_central(
 int hydro_flux_function_central(
     const double* ql,
     const double* qr,
-    double        h_left,
-    double        h_right,
-    double        hle,
-    double        hre,
-    double        n1,
-    double        n2,
-    double        epsilon,
-    double        ze,
-    double        g,
-    double*       edgeflux,
-    double*       max_speed,
-    double*       pressure_flux,
-    hydro_int     low_froude);
+    double h_left,
+    double h_right,
+    double hle,
+    double hre,
+    double n1,
+    double n2,
+    double epsilon,
+    double ze,
+    double g,
+    double* edgeflux,
+    double* max_speed,
+    double* pressure_flux,
+    hydro_int low_froude);
 
 /**
  * Positivity protection — ensure no negative water heights.
@@ -84,9 +85,9 @@ hydro_int hydro_fix_negative_cells(hydro_domain_t* domain);
  */
 void hydro_get_edge_data(
     const hydro_domain_t* domain,
-    hydro_int             k,
-    hydro_int             i,
-    hydro_edge_data_t*    edge);
+    hydro_int k,
+    hydro_int i,
+    hydro_edge_data_t* edge);
 
 #ifdef __cplusplus
 }

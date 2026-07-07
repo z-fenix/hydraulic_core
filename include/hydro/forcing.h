@@ -6,6 +6,7 @@
 
 #ifdef __cplusplus
 extern "C" {
+
 #endif
 
 /* =========================================================================
@@ -24,9 +25,9 @@ extern "C" {
  * If direction is NULL, a uniform direction_scalar is used.
  */
 void hydro_wind_stress_apply(hydro_domain_t* domain,
-                              const double* speed, double speed_scalar,
-                              const double* direction, double direction_scalar,
-                              hydro_int N, double time);
+                             const double* speed, double speed_scalar,
+                             const double* direction, double direction_scalar,
+                             hydro_int N, double time);
 
 /* =========================================================================
  * Barometric Pressure Gradient
@@ -44,8 +45,8 @@ void hydro_wind_stress_apply(hydro_domain_t* domain,
  * and adds -height * grad(p) / rho_w to momentum explicit_update.
  */
 void hydro_barometric_pressure_apply(hydro_domain_t* domain,
-                                      const double* pressure,
-                                      hydro_int N, double time);
+                                     const double* pressure,
+                                     hydro_int N, double time);
 
 /* =========================================================================
  * Rainfall / Inflow (General Forcing)
@@ -68,9 +69,9 @@ void hydro_rainfall_apply(hydro_domain_t* domain, double rate);
  * If indices is NULL, applies to all triangles.
  */
 void hydro_rate_apply(hydro_domain_t* domain,
-                       const double* rate,
-                       const hydro_int* indices,
-                       hydro_int num_indices);
+                      const double* rate,
+                      const hydro_int* indices,
+                      hydro_int num_indices);
 
 /* =========================================================================
  * Gradient Computation (utility, used by pressure and slope limiters)
@@ -82,10 +83,10 @@ void hydro_rate_apply(hydro_domain_t* domain,
  * dqdx, dqdy: output gradient components
  */
 void hydro_gradient_triangle(double x0, double y0,
-                              double x1, double y1,
-                              double x2, double y2,
-                              double q0, double q1, double q2,
-                              double* dqdx, double* dqdy);
+                             double x1, double y1,
+                             double x2, double y2,
+                             double q0, double q1, double q2,
+                             double* dqdx, double* dqdy);
 
 #ifdef __cplusplus
 }

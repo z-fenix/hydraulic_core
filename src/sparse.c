@@ -21,12 +21,13 @@ hydro_sparse_csr_t* hydro_sparse_csr_create(
     A->N = N;
     A->M = M;
     A->nnz = nnz;
-    A->data   = (double*)calloc((size_t)nnz, sizeof(double));
+    A->data = (double*)calloc((size_t)nnz, sizeof(double));
     A->colind = (hydro_int*)calloc((size_t)nnz, sizeof(hydro_int));
     A->rowptr = (hydro_int*)calloc((size_t)(N + 1), sizeof(hydro_int));
 
     /* Uniform row pointers: row i has entries [i*nnz_per_row, (i+1)*nnz_per_row) */
-    for (hydro_int i = 0; i <= N; i++) {
+    for (hydro_int i = 0; i <= N; i++)
+    {
         A->rowptr[i] = i * nnz_per_row;
     }
 
@@ -42,15 +43,17 @@ hydro_sparse_csr_t* hydro_sparse_csr_create_raw(
     A->N = N;
     A->M = M;
     A->nnz = nnz;
-    A->data   = (double*)calloc((size_t)nnz, sizeof(double));
+    A->data = (double*)calloc((size_t)nnz, sizeof(double));
     A->colind = (hydro_int*)calloc((size_t)nnz, sizeof(hydro_int));
     A->rowptr = (hydro_int*)calloc((size_t)(N + 1), sizeof(hydro_int));
 
     return A;
 }
 
-void hydro_sparse_csr_destroy(hydro_sparse_csr_t* A) {
-    if (A) {
+void hydro_sparse_csr_destroy(hydro_sparse_csr_t* A)
+{
+    if (A)
+    {
         free(A->data);
         free(A->colind);
         free(A->rowptr);
@@ -71,8 +74,9 @@ void hydro_sparse_csr_mv(
     for (hydro_int i = 0; i < N; i++) {
         double sum = 0.0;
         hydro_int start = A->rowptr[i];
-        hydro_int end   = A->rowptr[i + 1];
-        for (hydro_int p = start; p < end; p++) {
+        hydro_int end = A->rowptr[i + 1];
+        for (hydro_int p = start; p < end; p++)
+        {
             sum += A->data[p] * x[A->colind[p]];
         }
         y[i] = sum;
@@ -93,8 +97,9 @@ void hydro_sparse_csr_identity_plus_dt_mv(
     for (hydro_int i = 0; i < N; i++) {
         double sum = x[i];  /* identity: y = x + dt * A * x */
         hydro_int start = A->rowptr[i];
-        hydro_int end   = A->rowptr[i + 1];
-        for (hydro_int p = start; p < end; p++) {
+        hydro_int end = A->rowptr[i + 1];
+        for (hydro_int p = start; p < end; p++)
+        {
             sum += dt * A->data[p] * x[A->colind[p]];
         }
         y[i] = sum;

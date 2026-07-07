@@ -6,6 +6,7 @@
 
 #ifdef __cplusplus
 extern "C" {
+
 #endif
 
 /* =========================================================================
@@ -15,10 +16,11 @@ extern "C" {
  * ========================================================================= */
 
 /* Result statistics from CG solve */
-typedef struct {
-    hydro_int iterations;   /* number of iterations performed */
-    double    residual;     /* final residual norm */
-    int       converged;    /* 1 if converged within tolerance */
+typedef struct
+{
+    hydro_int iterations; /* number of iterations performed */
+    double residual; /* final residual norm */
+    int converged; /* 1 if converged within tolerance */
 } hydro_cg_stats_t;
 
 /**

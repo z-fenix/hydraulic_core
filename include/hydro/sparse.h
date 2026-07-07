@@ -5,6 +5,7 @@
 
 #ifdef __cplusplus
 extern "C" {
+
 #endif
 
 /* =========================================================================
@@ -16,13 +17,14 @@ extern "C" {
  *   rowptr[N+1] — row start pointers (row i: data[rowptr[i]]..data[rowptr[i+1]-1])
  * ========================================================================= */
 
-typedef struct {
-    hydro_int N;        /* number of rows */
-    hydro_int M;        /* number of columns */
-    hydro_int nnz;      /* number of non-zero entries (allocated size) */
-    double*   data;     /* [nnz] non-zero values */
-    hydro_int* colind;  /* [nnz] column indices */
-    hydro_int* rowptr;  /* [N+1] row pointers */
+typedef struct
+{
+    hydro_int N; /* number of rows */
+    hydro_int M; /* number of columns */
+    hydro_int nnz; /* number of non-zero entries (allocated size) */
+    double* data; /* [nnz] non-zero values */
+    hydro_int* colind; /* [nnz] column indices */
+    hydro_int* rowptr; /* [N+1] row pointers */
 } hydro_sparse_csr_t;
 
 /**

@@ -61,7 +61,7 @@ def main():
 
     # ---- 5. Evolve -------------------------------------------------------
     output_path = os.path.join(
-        os.path.dirname(__file__), "..", "dam_break.sww"
+        os.path.dirname(__file__), "dam_break.sww"
     )
     print(f"\nEvolving to t=0.2 with yieldstep=0.05...")
     domain.evolve(finaltime=0.2, yieldstep=0.05)

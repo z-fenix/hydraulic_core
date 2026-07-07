@@ -17,25 +17,29 @@
  * Replaces C++ std::unordered_map<edge_key_t, edge_t> from neighbour_table.cpp
  * ========================================================================== */
 
-typedef struct {
-    hydro_int i;    /* smaller node id */
-    hydro_int j;    /* larger node id */
+typedef struct
+{
+    hydro_int i; /* smaller node id */
+    hydro_int j; /* larger node id */
 } edge_key_t;
 
-typedef struct {
-    hydro_int vol_id;   /* triangle index */
-    hydro_int edge_id;  /* which edge (0,1,2) */
+typedef struct
+{
+    hydro_int vol_id; /* triangle index */
+    hydro_int edge_id; /* which edge (0,1,2) */
 } edge_val_t;
 
-typedef struct {
+typedef struct
+{
     edge_key_t key;
     edge_val_t val;
-    int        occupied;
+    int occupied;
 } hash_entry_t;
 
 #define HASH_TABLE_SIZE_INIT 65536
 
-static hydro_int edge_hash(const edge_key_t* key, hydro_int table_size) {
+static hydro_int edge_hash(const edge_key_t* key, hydro_int table_size)
+{
     /* FNV-1a hash of two 64-bit ints */
     hydro_uint h = 14695981039346656037ULL;
     h ^= (hydro_uint)key->i;
@@ -45,43 +49,62 @@ static hydro_int edge_hash(const edge_key_t* key, hydro_int table_size) {
     return (hydro_int)(h % (hydro_uint)table_size);
 }
 
-static edge_key_t make_edge_key(hydro_int a, hydro_int b) {
+static edge_key_t make_edge_key(hydro_int a, hydro_int b)
+{
     edge_key_t key;
-    if (a < b) { key.i = a; key.j = b; }
-    else       { key.i = b; key.j = a; }
+    if (a < b)
+    {
+        key.i = a;
+        key.j = b;
+    }
+    else
+    {
+        key.i = b;
+        key.j = a;
+    }
     return key;
 }
 
 /* Linear probe hash table */
-typedef struct {
+typedef struct
+{
     hash_entry_t* entries;
-    hydro_int     size;
-    hydro_int     count;
+    hydro_int size;
+    hydro_int count;
 } edge_hash_t;
 
-static edge_hash_t* edge_hash_create(hydro_int capacity) {
+static edge_hash_t* edge_hash_create(hydro_int capacity)
+{
     edge_hash_t* ht = (edge_hash_t*)calloc(1, sizeof(edge_hash_t));
     if (!ht) return NULL;
     ht->size = capacity;
     ht->entries = (hash_entry_t*)calloc((size_t)capacity, sizeof(hash_entry_t));
-    if (!ht->entries) { free(ht); return NULL; }
+    if (!ht->entries)
+    {
+        free(ht);
+        return NULL;
+    }
     return ht;
 }
 
-static void edge_hash_destroy(edge_hash_t* ht) {
-    if (ht) {
+static void edge_hash_destroy(edge_hash_t* ht)
+{
+    if (ht)
+    {
         free(ht->entries);
         free(ht);
     }
 }
 
-static int edge_hash_insert(edge_hash_t* ht, edge_key_t key, edge_val_t val) {
+static int edge_hash_insert(edge_hash_t* ht, edge_key_t key, edge_val_t val)
+{
     hydro_int idx = edge_hash(&key, ht->size);
     /* Allow duplicates — each triangle sharing an edge creates an entry.
      * No infinite-loop guard needed: table size is 2 * n_edges, so even
      * with all 600 edges as duplicates (300 keys × 2 entries each)
      * we stay well below capacity. */
-    while (ht->entries[idx].occupied) {
+    while (ht->entries[idx].occupied)
+    {
         idx = (idx + 1) % ht->size;
     }
     ht->entries[idx].key = key;
@@ -91,19 +114,22 @@ static int edge_hash_insert(edge_hash_t* ht, edge_key_t key, edge_val_t val) {
     return 0;
 }
 
-static int edge_hash_find(edge_hash_t* ht, edge_key_t key, edge_val_t* val) {
+static int edge_hash_find(edge_hash_t* ht, edge_key_t key, edge_val_t* val)
+{
     hydro_int idx = edge_hash(&key, ht->size);
     hydro_int start = idx;
-    while (ht->entries[idx].occupied) {
+    while (ht->entries[idx].occupied)
+    {
         edge_key_t* ek = &ht->entries[idx].key;
-        if (ek->i == key.i && ek->j == key.j) {
+        if (ek->i == key.i && ek->j == key.j)
+        {
             *val = ht->entries[idx].val;
-            return 0;  /* found */
+            return 0; /* found */
         }
         idx = (idx + 1) % ht->size;
-        if (idx == start) break;  /* wrap-around guard */
+        if (idx == start) break; /* wrap-around guard */
     }
-    return -1;  /* not found */
+    return -1; /* not found */
 }
 
 /* ==========================================================================
@@ -112,7 +138,8 @@ static int edge_hash_find(edge_hash_t* ht, edge_key_t key, edge_val_t* val) {
  * Ported from neighbour_table.cpp:_build_neighbour_structure()
  * ========================================================================== */
 
-int hydro_mesh_build_neighbour_structure(hydro_domain_t* d) {
+int hydro_mesh_build_neighbour_structure(hydro_domain_t* d)
+{
     hydro_int M = d->number_of_elements;
     hydro_int n_edges = d->number_of_edges;
     hydro_int k, k3, edge_id;
@@ -126,12 +153,14 @@ int hydro_mesh_build_neighbour_structure(hydro_domain_t* d) {
     if (table_size < n_edges * 4) table_size = n_edges * 4;
 
     /* ---- Step 0: Initialise ---- */
-    for (k = 0; k < n_edges; k++) {
-        d->neighbours[k]      = -1;
+    for (k = 0; k < n_edges; k++)
+    {
+        d->neighbours[k] = -1;
         d->neighbour_edges[k] = -1;
         d->already_computed_flux[k] = 0;
     }
-    for (k = 0; k < M; k++) {
+    for (k = 0; k < M; k++)
+    {
         d->number_of_boundaries[k] = 0;
     }
 
@@ -139,7 +168,8 @@ int hydro_mesh_build_neighbour_structure(hydro_domain_t* d) {
     edge_hash_t* ht = edge_hash_create(table_size);
     if (!ht) return -1;
 
-    for (k = 0; k < M; k++) {
+    for (k = 0; k < M; k++)
+    {
         k3 = 3 * k;
         n0 = d->triangles[k3];
         n1 = d->triangles[k3 + 1];
@@ -165,35 +195,46 @@ int hydro_mesh_build_neighbour_structure(hydro_domain_t* d) {
     }
 
     /* ---- Step 2: Find neighbours ---- */
-    for (k = 0; k < M; k++) {
+    for (k = 0; k < M; k++)
+    {
         k3 = 3 * k;
         n0 = d->triangles[k3];
         n1 = d->triangles[k3 + 1];
         n2 = d->triangles[k3 + 2];
 
-        for (edge_id = 0; edge_id < 3; edge_id++) {
+        for (edge_id = 0; edge_id < 3; edge_id++)
+        {
             hydro_int ni;
 
-            if (edge_id == 0) {
+            if (edge_id == 0)
+            {
                 key = make_edge_key(n1, n2);
-            } else if (edge_id == 1) {
+            }
+            else if (edge_id == 1)
+            {
                 key = make_edge_key(n2, n0);
-            } else {
+            }
+            else
+            {
                 key = make_edge_key(n0, n1);
             }
 
-            if (edge_hash_find(ht, key, &val) == 0) {
+            if (edge_hash_find(ht, key, &val) == 0)
+            {
                 /* Check all entries with this key (linear probe) */
                 hydro_int idx = edge_hash(&key, ht->size);
                 hydro_int found_count = 0;
                 hydro_int my_idx = k3 + edge_id;
 
-                while (ht->entries[idx].occupied) {
+                while (ht->entries[idx].occupied)
+                {
                     edge_key_t* ek = &ht->entries[idx].key;
-                    if (ek->i == key.i && ek->j == key.j) {
+                    if (ek->i == key.i && ek->j == key.j)
+                    {
                         hydro_int other_k = ht->entries[idx].val.vol_id;
                         hydro_int other_e = ht->entries[idx].val.edge_id;
-                        if (other_k != k) {
+                        if (other_k != k)
+                        {
                             d->neighbours[my_idx] = other_k;
                             d->neighbour_edges[my_idx] = other_e;
                             found_count++;
@@ -215,16 +256,21 @@ int hydro_mesh_build_neighbour_structure(hydro_domain_t* d) {
     edge_hash_destroy(ht);
 
     /* ---- Step 3: Build surrogate neighbours and count boundaries ---- */
-    for (k = 0; k < M; k++) {
+    for (k = 0; k < M; k++)
+    {
         hydro_int boundary_count_k = 0;
         k3 = 3 * k;
-        for (edge_id = 0; edge_id < 3; edge_id++) {
+        for (edge_id = 0; edge_id < 3; edge_id++)
+        {
             hydro_int ni = k3 + edge_id;
-            if (d->neighbours[ni] < 0) {
+            if (d->neighbours[ni] < 0)
+            {
                 /* Boundary edge: surrogate neighbour = self */
                 d->surrogate_neighbours[ni] = k;
                 boundary_count_k++;
-            } else {
+            }
+            else
+            {
                 d->surrogate_neighbours[ni] = d->neighbours[ni];
             }
         }
@@ -241,28 +287,31 @@ int hydro_mesh_build_neighbour_structure(hydro_domain_t* d) {
  * Ported from neighbour_mesh.py
  * ========================================================================== */
 
-int hydro_mesh_build_boundary_structure(hydro_domain_t* d) {
+int hydro_mesh_build_boundary_structure(hydro_domain_t* d)
+{
     hydro_int M = d->number_of_elements;
     hydro_int bl = d->boundary_length;
     hydro_int k, k3, edge_id, bi;
 
-    if (bl == 0) {
-        return 0;  /* no boundaries */
+    if (bl == 0)
+    {
+        return 0; /* no boundaries */
     }
 
     /* Allocate boundary arrays */
-    d->boundary_tags  = (hydro_int*)calloc((size_t)bl, sizeof(hydro_int));
+    d->boundary_tags = (hydro_int*)calloc((size_t)bl, sizeof(hydro_int));
     d->boundary_edges = (hydro_int*)calloc((size_t)bl, sizeof(hydro_int));
 
-    d->stage_boundary_values    = (double*)calloc((size_t)bl, sizeof(double));
-    d->xmom_boundary_values     = (double*)calloc((size_t)bl, sizeof(double));
-    d->ymom_boundary_values     = (double*)calloc((size_t)bl, sizeof(double));
-    d->bed_boundary_values      = (double*)calloc((size_t)bl, sizeof(double));
-    d->height_boundary_values   = (double*)calloc((size_t)bl, sizeof(double));
+    d->stage_boundary_values = (double*)calloc((size_t)bl, sizeof(double));
+    d->xmom_boundary_values = (double*)calloc((size_t)bl, sizeof(double));
+    d->ymom_boundary_values = (double*)calloc((size_t)bl, sizeof(double));
+    d->bed_boundary_values = (double*)calloc((size_t)bl, sizeof(double));
+    d->height_boundary_values = (double*)calloc((size_t)bl, sizeof(double));
     d->xvelocity_boundary_values = (double*)calloc((size_t)bl, sizeof(double));
     d->yvelocity_boundary_values = (double*)calloc((size_t)bl, sizeof(double));
 
-    if (!d->boundary_tags || !d->boundary_edges) {
+    if (!d->boundary_tags || !d->boundary_edges)
+    {
         fprintf(stderr, "hydro: boundary allocation failed\n");
         return -1;
     }
@@ -271,16 +320,20 @@ int hydro_mesh_build_boundary_structure(hydro_domain_t* d) {
        The convention: neighbours[edge] = -(bi + 1) where bi = boundary index.
        This allows flux computation to compute bnd_idx = -neighbour - 1. */
     bi = 0;
-    for (k = 0; k < M; k++) {
+    for (k = 0; k < M; k++)
+    {
         k3 = 3 * k;
-        for (edge_id = 0; edge_id < 3; edge_id++) {
+        for (edge_id = 0; edge_id < 3; edge_id++)
+        {
             hydro_int ni = k3 + edge_id;
-            if (d->neighbours[ni] < 0) {
-                d->neighbours[ni] = -(bi + 1);  /* unique negative index */
+            if (d->neighbours[ni] < 0)
+            {
+                d->neighbours[ni] = -(bi + 1); /* unique negative index */
                 d->boundary_edges[bi] = ni;
                 /* Use user-provided tag from boundary_tag_map, or default to 1 */
                 d->boundary_tags[bi] = (d->boundary_tag_map && d->boundary_tag_map[ni] > 0)
-                    ? d->boundary_tag_map[ni] : 1;
+                                           ? d->boundary_tag_map[ni]
+                                           : 1;
                 bi++;
             }
         }

@@ -37,7 +37,7 @@ print(f"Mesh: {len(vertices)} nodes, {n_tri} triangles, {len(bedges)} boundary e
 # Initial conditions
 # ---------------------------------------------------------------------------
 cent_x = vertices[triangles].mean(axis=1)[:, 0]
-elevation = -cent_x / 10.0  # linear bed slope
+elevation = 1-cent_x / 10.0  # linear bed slope
 
 # ---------------------------------------------------------------------------
 # Create domain
@@ -59,7 +59,7 @@ domain.set_parameter("timestepping_method", EULER)
 # ---------------------------------------------------------------------------
 # Boundary conditions
 # ---------------------------------------------------------------------------
-domain.set_boundary(1, HYDRO_BC_DIRICHLET, stage=0.4)     # left — inflow
+domain.set_boundary(1, HYDRO_BC_DIRICHLET, depth=1.4)     # left — inflow
 domain.set_boundary(2, HYDRO_BC_REFLECTIVE)               # right — wall
 domain.set_boundary(3, HYDRO_BC_REFLECTIVE)               # top — wall
 domain.set_boundary(4, HYDRO_BC_REFLECTIVE)               # bottom — wall

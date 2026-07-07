@@ -33,7 +33,8 @@ void hydro_domain_set_boundary(
     hydro_domain_t* domain, hydro_int boundary_tag,
     hydro_bc_type_t bc_type, const hydro_bc_params_t* bc_params)
 {
-    if (boundary_tag < 0 || boundary_tag >= HYDRO_MAX_BOUNDARY_TAGS) {
+    if (boundary_tag < 0 || boundary_tag >= HYDRO_MAX_BOUNDARY_TAGS)
+    {
         fprintf(stderr, "hydro: boundary tag %lld out of range [0, %d)\n",
                 (long long)boundary_tag, HYDRO_MAX_BOUNDARY_TAGS);
         return;
@@ -41,14 +42,17 @@ void hydro_domain_set_boundary(
 
     domain->boundary_bc_type_tag[boundary_tag] = (hydro_int)bc_type;
 
-    if (bc_params) {
+    if (bc_params)
+    {
         domain->boundary_stage_tag[boundary_tag] = bc_params->depth;
-        domain->boundary_xmom_tag[boundary_tag]  = bc_params->wh0;
-        domain->boundary_ymom_tag[boundary_tag]  = 0.0;
-    } else {
+        domain->boundary_xmom_tag[boundary_tag] = bc_params->wh0;
+        domain->boundary_ymom_tag[boundary_tag] = 0.0;
+    }
+    else
+    {
         domain->boundary_stage_tag[boundary_tag] = 0.0;
-        domain->boundary_xmom_tag[boundary_tag]  = 0.0;
-        domain->boundary_ymom_tag[boundary_tag]  = 0.0;
+        domain->boundary_xmom_tag[boundary_tag] = 0.0;
+        domain->boundary_ymom_tag[boundary_tag] = 0.0;
     }
 }
 
@@ -58,8 +62,8 @@ void hydro_boundary_update_stage_time(
 {
     if (boundary_tag < 0 || boundary_tag >= HYDRO_MAX_BOUNDARY_TAGS) return;
     domain->boundary_stage_tag[boundary_tag] = stage;
-    domain->boundary_xmom_tag[boundary_tag]  = xmom;
-    domain->boundary_ymom_tag[boundary_tag]  = ymom;
+    domain->boundary_xmom_tag[boundary_tag] = xmom;
+    domain->boundary_ymom_tag[boundary_tag] = ymom;
 }
 
 /* =========================================================================
@@ -78,20 +82,26 @@ void hydro_boundary_set_time_series(
     free(domain->boundary_time_series[boundary_tag].q_values);
 
     /* Copy data */
-    if (times && n_points > 0) {
+    if (times && n_points > 0)
+    {
         double* t_copy = (double*)malloc(n_points * sizeof(double));
         double* q_copy = (double*)malloc(n_points * sizeof(double));
-        if (t_copy && q_copy) {
+        if (t_copy && q_copy)
+        {
             memcpy(t_copy, times, n_points * sizeof(double));
             memcpy(q_copy, q_values, n_points * sizeof(double));
             domain->boundary_time_series[boundary_tag].times = t_copy;
             domain->boundary_time_series[boundary_tag].q_values = q_copy;
             domain->boundary_time_series[boundary_tag].n_points = n_points;
-        } else {
+        }
+        else
+        {
             free(t_copy);
             free(q_copy);
         }
-    } else {
+    }
+    else
+    {
         domain->boundary_time_series[boundary_tag].n_points = 0;
     }
     domain->boundary_time_series[boundary_tag].default_stage = default_stage;
@@ -100,23 +110,25 @@ void hydro_boundary_set_time_series(
     double total_width = 0.0;
     double total_bed = 0.0;
     hydro_int bed_count = 0;
-    for (hydro_int bi = 0; bi < domain->boundary_length; bi++) {
-        if (domain->boundary_tags[bi] == boundary_tag) {
+    for (hydro_int bi = 0; bi < domain->boundary_length; bi++)
+    {
+        if (domain->boundary_tags[bi] == boundary_tag)
+        {
             hydro_int edge_idx = domain->boundary_edges[bi];
             total_width += domain->edgelengths[edge_idx];
 
             hydro_int k = edge_idx / 3;
             hydro_int ei = edge_idx % 3;
             /* Average bed of the three triangle vertices adjacent to this edge. */
-            total_bed += (domain->bed_edge_values[3*k + ei] +
-                          domain->bed_edge_values[(3*k + ei + 1) % (3*domain->number_of_elements)] +
-                          domain->bed_edge_values[(3*k + ei + 2) % (3*domain->number_of_elements)]) / 3.0;
+            total_bed += (domain->bed_edge_values[3 * k + ei] +
+                domain->bed_edge_values[(3 * k + ei + 1) % (3 * domain->number_of_elements)] +
+                domain->bed_edge_values[(3 * k + ei + 2) % (3 * domain->number_of_elements)]) / 3.0;
             bed_count++;
         }
     }
     if (total_width < 1e-6) total_width = 1.0; /* fallback */
     if (bed_count > 0) total_bed /= bed_count;
-    else               total_bed = 0.0;
+    else total_bed = 0.0;
 
     domain->boundary_time_series[boundary_tag].total_width = total_width;
     domain->boundary_time_series[boundary_tag].mean_bed = total_bed;
@@ -127,11 +139,12 @@ static int linear_interp_index(const double* times, int n, double t)
 {
     if (n <= 0) return 0;
     if (t <= times[0]) return 0;
-    if (t >= times[n-1]) return n - 2;
+    if (t >= times[n - 1]) return n - 2;
 
     /* Binary search for bracketing interval */
     int lo = 0, hi = n - 1;
-    while (lo < hi - 1) {
+    while (lo < hi - 1)
+    {
         int mid = (lo + hi) / 2;
         if (times[mid] <= t) lo = mid;
         else hi = mid;
@@ -179,19 +192,24 @@ static double q_to_stage(double Q, double bed, double manning_n,
     double h = pow(manning_n * Q / (channel_width * sqrt(S)), 0.6);
 
     /* Newton-Raphson refinement for exact Manning: Q = (1/n)*A*R^(2/3)*S^0.5 */
-    for (int iter = 0; iter < 20; iter++) {
+    for (int iter = 0; iter < 20; iter++)
+    {
         double A = channel_width * h;
         if (A < 1e-12) break;
         double P = channel_width + 2.0 * h; /* wetted perimeter */
         double R = A / P; /* hydraulic radius */
-        double Q_calc = (1.0 / manning_n) * A * pow(R, 2.0/3.0) * sqrt(S);
-        double dQdh = (1.0 / manning_n) * (pow(R, 2.0/3.0) * channel_width +
-                      A * (2.0/3.0) * pow(R, -1.0/3.0) *
-                      ((channel_width * P - A * channel_width) / (P * P)));
+        double Q_calc = (1.0 / manning_n) * A * pow(R, 2.0 / 3.0) * sqrt(S);
+        double dQdh = (1.0 / manning_n) * (pow(R, 2.0 / 3.0) * channel_width +
+            A * (2.0 / 3.0) * pow(R, -1.0 / 3.0) *
+            ((channel_width * P - A * channel_width) / (P * P)));
         if (fabs(dQdh) < 1e-15) break;
         double dh = (Q - Q_calc) / dQdh;
         h += dh;
-        if (h <= 0) { h = default_stage; break; }
+        if (h <= 0)
+        {
+            h = default_stage;
+            break;
+        }
         if (fabs(dh) < 1e-10) break;
     }
 
@@ -224,7 +242,7 @@ void hydro_boundary_update_time_series(
 
     /* Store depth (relative to mean bed) in boundary_stage_tag;
      * the dispatch switch adds bed per-edge to get absolute stage. */
-    domain->boundary_stage_tag[boundary_tag] = stage - mean_bed;
+    domain->boundary_stage_tag[boundary_tag] = stage;
     /* Zero momentum — the flux computation will handle the inflow */
     domain->boundary_xmom_tag[boundary_tag] = 0.0;
     domain->boundary_ymom_tag[boundary_tag] = 0.0;
@@ -244,38 +262,39 @@ void hydro_boundary_evaluate_reflective_segment(
     #endif
     for (hydro_int k = 0; k < num_edges; k++) {
         hydro_int seg_id = edge_segment[k];
-        hydro_int vid    = vol_ids[k];
-        hydro_int eid    = edge_ids[k];
+        hydro_int vid = vol_ids[k];
+        hydro_int eid = edge_ids[k];
 
         /* Edge normal */
-        double n1 = domain->normals[vid*6 + 2*eid];
-        double n2 = domain->normals[vid*6 + 2*eid + 1];
+        double n1 = domain->normals[vid * 6 + 2 * eid];
+        double n2 = domain->normals[vid * 6 + 2 * eid + 1];
 
         /* Stage/bed/height: copy from interior */
         domain->stage_boundary_values[seg_id] =
-            domain->stage_edge_values[3*vid + eid];
+            domain->stage_edge_values[3 * vid + eid];
         domain->bed_boundary_values[seg_id] =
-            domain->bed_edge_values[3*vid + eid];
+            domain->bed_edge_values[3 * vid + eid];
         domain->height_boundary_values[seg_id] =
-            domain->height_edge_values[3*vid + eid];
+            domain->height_edge_values[3 * vid + eid];
 
         /* Momentum: reflect — normal component flips sign */
-        double q1 = domain->xmom_edge_values[3*vid + eid];
-        double q2 = domain->ymom_edge_values[3*vid + eid];
-        double r1 = -q1*n1 - q2*n2;
-        double r2 = -q1*n2 + q2*n1;
+        double q1 = domain->xmom_edge_values[3 * vid + eid];
+        double q2 = domain->ymom_edge_values[3 * vid + eid];
+        double r1 = -q1 * n1 - q2 * n2;
+        double r2 = -q1 * n2 + q2 * n1;
 
-        domain->xmom_boundary_values[seg_id] = n1*r1 - n2*r2;
-        domain->ymom_boundary_values[seg_id] = n2*r1 + n1*r2;
+        domain->xmom_boundary_values[seg_id] = n1 * r1 - n2 * r2;
+        domain->ymom_boundary_values[seg_id] = n2 * r1 + n1 * r2;
 
         /* Velocity: same reflection */
-        if (domain->xvelocity_edge_values && domain->yvelocity_edge_values) {
-            double v1 = domain->xvelocity_edge_values[3*vid + eid];
-            double v2 = domain->yvelocity_edge_values[3*vid + eid];
-            double s1 = v1*n1 + v2*n2;
-            double s2 = v1*n2 - v2*n1;
-            domain->xvelocity_boundary_values[seg_id] = n1*s1 - n2*s2;
-            domain->yvelocity_boundary_values[seg_id] = n2*s1 + n1*s2;
+        if (domain->xvelocity_edge_values && domain->yvelocity_edge_values)
+        {
+            double v1 = domain->xvelocity_edge_values[3 * vid + eid];
+            double v2 = domain->yvelocity_edge_values[3 * vid + eid];
+            double s1 = v1 * n1 + v2 * n2;
+            double s2 = v1 * n2 - v2 * n1;
+            domain->xvelocity_boundary_values[seg_id] = n1 * s1 - n2 * s2;
+            domain->yvelocity_boundary_values[seg_id] = n2 * s1 + n1 * s2;
         }
     }
 }
@@ -290,15 +309,15 @@ void hydro_boundary_evaluate_dirichlet_segment(
     #endif
     for (hydro_int k = 0; k < num_edges; k++) {
         hydro_int seg_id = edge_segment[k];
-        hydro_int vid    = vol_ids[k];
-        hydro_int eid    = edge_ids[k];
+        hydro_int vid = vol_ids[k];
+        hydro_int eid = edge_ids[k];
 
         /* Set external stage */
         domain->stage_boundary_values[seg_id] = stage;
 
         /* Copy bed from interior */
         domain->bed_boundary_values[seg_id] =
-            domain->bed_edge_values[3*vid + eid];
+            domain->bed_edge_values[3 * vid + eid];
 
         /* Height = max(stage - bed, 0) */
         double h = stage - domain->bed_boundary_values[seg_id];
@@ -322,23 +341,26 @@ void hydro_boundary_evaluate_transmissive_segment(
     #endif
     for (hydro_int k = 0; k < num_edges; k++) {
         hydro_int seg_id = edge_segment[k];
-        hydro_int vid    = vol_ids[k];
-        hydro_int eid    = edge_ids[k];
-        hydro_int k3i    = 3*vid + eid;
+        hydro_int vid = vol_ids[k];
+        hydro_int eid = edge_ids[k];
+        hydro_int k3i = 3 * vid + eid;
 
         /* Normal */
-        double n1 = domain->normals[vid*6 + 2*eid];
-        double n2 = domain->normals[vid*6 + 2*eid + 1];
+        double n1 = domain->normals[vid * 6 + 2 * eid];
+        double n2 = domain->normals[vid * 6 + 2 * eid + 1];
 
         /* Stage: either external (set) or interior (copy) */
-        if (set_stage) {
+        if (set_stage)
+        {
             domain->stage_boundary_values[seg_id] = external_stage;
             domain->bed_boundary_values[seg_id] =
                 domain->bed_edge_values[k3i];
             double h = external_stage - domain->bed_boundary_values[seg_id];
             if (h < 0) h = 0;
             domain->height_boundary_values[seg_id] = h;
-        } else {
+        }
+        else
+        {
             domain->stage_boundary_values[seg_id] =
                 domain->stage_edge_values[k3i];
             domain->bed_boundary_values[seg_id] =
@@ -350,7 +372,7 @@ void hydro_boundary_evaluate_transmissive_segment(
         /* Transmissive momentum: normal component preserved, tangential zeroed */
         double q1 = domain->xmom_edge_values[k3i];
         double q2 = domain->ymom_edge_values[k3i];
-        double ndotq = n1*q1 + n2*q2;
+        double ndotq = n1 * q1 + n2 * q2;
 
         domain->xmom_boundary_values[seg_id] = ndotq * n1;
         domain->ymom_boundary_values[seg_id] = ndotq * n2;
@@ -368,17 +390,17 @@ void hydro_boundary_evaluate_discharge_segment(
     #endif
     for (hydro_int k = 0; k < num_edges; k++) {
         hydro_int seg_id = edge_segment[k];
-        hydro_int vid    = vol_ids[k];
-        hydro_int eid    = edge_ids[k];
+        hydro_int vid = vol_ids[k];
+        hydro_int eid = edge_ids[k];
 
         /* Edge normal (outward) → inward normal = -normal */
-        double nx = domain->normals[vid*6 + 2*eid];
-        double ny = domain->normals[vid*6 + 2*eid + 1];
+        double nx = domain->normals[vid * 6 + 2 * eid];
+        double ny = domain->normals[vid * 6 + 2 * eid + 1];
 
         /* Set stage */
         domain->stage_boundary_values[seg_id] = stage;
         domain->bed_boundary_values[seg_id] =
-            domain->bed_edge_values[3*vid + eid];
+            domain->bed_edge_values[3 * vid + eid];
         double h = stage - domain->bed_boundary_values[seg_id];
         if (h < 0) h = 0;
         domain->height_boundary_values[seg_id] = h;
@@ -393,19 +415,24 @@ void hydro_boundary_evaluate_discharge_segment(
  * Main boundary update — dispatches per boundary edge based on its tag
  * ========================================================================= */
 
-void hydro_boundary_update(hydro_domain_t* domain) {
+void hydro_boundary_update(hydro_domain_t* domain)
+{
     hydro_int bl = domain->boundary_length;
     if (bl == 0) return;
 
     /* Pre-update time-series boundaries: interpolate Q(t) and derive stage
      * for any tags using HYDRO_BC_TIME_SERIES.  This must happen before
      * the main dispatch switch reads boundary_stage_tag[]. */
-    for (int tag = 1; tag < HYDRO_MAX_BOUNDARY_TAGS; tag++) {
-        if (domain->boundary_bc_type_tag[tag] == HYDRO_BC_TIME_SERIES) { /* HYDRO_BC_TIME_SERIES */
+    for (int tag = 1; tag < HYDRO_MAX_BOUNDARY_TAGS; tag++)
+    {
+        if (domain->boundary_bc_type_tag[tag] == HYDRO_BC_TIME_SERIES)
+        {
+            /* HYDRO_BC_TIME_SERIES */
             struct hydro_ts_data* ts = &domain->boundary_time_series[tag];
-            if (ts->n_points > 0) {
+            if (ts->n_points > 0)
+            {
                 hydro_boundary_update_time_series(
-                    domain, (hydro_int)tag, domain->time);
+                    domain, tag, domain->time);
             }
         }
     }
@@ -419,55 +446,59 @@ void hydro_boundary_update(hydro_domain_t* domain) {
 
         hydro_int bc_type = domain->boundary_bc_type_tag[tag];
         hydro_int ni = domain->boundary_edges[bi];
-        hydro_int k  = ni / 3;
+        hydro_int k = ni / 3;
         hydro_int ei = ni % 3;
-        hydro_int k3i = 3*k + ei;
+        hydro_int k3i = 3 * k + ei;
 
-        double nx = domain->normals[2*k3i];
-        double ny = domain->normals[2*k3i + 1];
+        double nx = domain->normals[2 * k3i];
+        double ny = domain->normals[2 * k3i + 1];
 
-        switch (bc_type) {
-
+        switch (bc_type)
+        {
         case HYDRO_BC_REFLECTIVE:
         default:
             /* Reflective BC: stage/bed/height = interior, momentum reflected */
-            domain->stage_boundary_values[bi]  = domain->stage_edge_values[k3i];
-            domain->bed_boundary_values[bi]    = domain->bed_edge_values[k3i];
+            domain->stage_boundary_values[bi] = domain->stage_edge_values[k3i];
+            domain->bed_boundary_values[bi] = domain->bed_edge_values[k3i];
             domain->height_boundary_values[bi] = domain->height_edge_values[k3i];
 
             {
                 double qx = domain->xmom_edge_values[k3i];
                 double qy = domain->ymom_edge_values[k3i];
-                double dot = qx*nx + qy*ny;
-                domain->xmom_boundary_values[bi] = qx - 2.0*dot*nx;
-                domain->ymom_boundary_values[bi] = qy - 2.0*dot*ny;
+                double dot = qx * nx + qy * ny;
+                domain->xmom_boundary_values[bi] = qx - 2.0 * dot * nx;
+                domain->ymom_boundary_values[bi] = qy - 2.0 * dot * ny;
             }
             break;
 
         case HYDRO_BC_DIRICHLET:
             /* Fixed depth, zero momentum */
             {
-                double depth = domain->boundary_stage_tag[tag];
-                domain->stage_boundary_values[bi]  = depth + domain->bed_edge_values[k3i];
-                domain->bed_boundary_values[bi]    = domain->bed_edge_values[k3i];
+                double stage_ext = domain->boundary_stage_tag[tag];
+                domain->stage_boundary_values[bi] = stage_ext;
+                domain->bed_boundary_values[bi] = domain->bed_edge_values[k3i];
+                double depth = stage_ext - domain->bed_boundary_values[bi];
+                if (depth < 0) depth = 0;
                 domain->height_boundary_values[bi] = depth;
-                domain->xmom_boundary_values[bi]   = 0.0;
-                domain->ymom_boundary_values[bi]   = 0.0;
+                domain->xmom_boundary_values[bi] = 0.0;
+                domain->ymom_boundary_values[bi] = 0.0;
             }
             break;
 
         case HYDRO_BC_TRANSMISSIVE:
             /* Set depth from tag, copy interior momentum */
             {
-                double depth = domain->boundary_stage_tag[tag];
-                domain->stage_boundary_values[bi]  = depth + domain->bed_edge_values[k3i];
-                domain->bed_boundary_values[bi]    = domain->bed_edge_values[k3i];
+                double stage_ext = domain->boundary_stage_tag[tag];
+                domain->stage_boundary_values[bi] = stage_ext;
+                domain->bed_boundary_values[bi] = domain->bed_edge_values[k3i];
+                double depth = stage_ext - domain->bed_boundary_values[bi];
+                if (depth < 0) depth = 0;
                 domain->height_boundary_values[bi] = depth;
 
                 /* Transmissive momentum: keep normal component, zero tangential */
                 double qx = domain->xmom_edge_values[k3i];
                 double qy = domain->ymom_edge_values[k3i];
-                double ndotq = nx*qx + ny*qy;
+                double ndotq = nx * qx + ny * qy;
                 domain->xmom_boundary_values[bi] = ndotq * nx;
                 domain->ymom_boundary_values[bi] = ndotq * ny;
             }
@@ -476,47 +507,53 @@ void hydro_boundary_update(hydro_domain_t* domain) {
         case HYDRO_BC_TIME:
             /* Time-varying depth (updated externally), zero momentum */
             {
-                double depth = domain->boundary_stage_tag[tag];
-                domain->stage_boundary_values[bi]  = depth + domain->bed_edge_values[k3i];
-                domain->bed_boundary_values[bi]    = domain->bed_edge_values[k3i];
+                double stage_ext = domain->boundary_stage_tag[tag];
+                domain->stage_boundary_values[bi] = stage_ext;
+                domain->bed_boundary_values[bi] = domain->bed_edge_values[k3i];
+                double depth = stage_ext - domain->bed_boundary_values[bi];
+                if (depth < 0) depth = 0;
                 domain->height_boundary_values[bi] = depth;
-                domain->xmom_boundary_values[bi]   = 0.0;
-                domain->ymom_boundary_values[bi]   = 0.0;
+                domain->xmom_boundary_values[bi] = 0.0;
+                domain->ymom_boundary_values[bi] = 0.0;
             }
             break;
 
         case HYDRO_BC_DIRICHLET_DISCHARGE:
             /* Fixed depth + inward normal discharge */
             {
-                double depth = domain->boundary_stage_tag[tag];
-                double wh0       = domain->boundary_xmom_tag[tag];
-                domain->stage_boundary_values[bi]  = depth + domain->bed_edge_values[k3i];
-                domain->bed_boundary_values[bi]    = domain->bed_edge_values[k3i];
+                double stage_ext = domain->boundary_stage_tag[tag];
+                double wh0 = domain->boundary_xmom_tag[tag];
+                domain->stage_boundary_values[bi] = stage_ext;
+                domain->bed_boundary_values[bi] = domain->bed_edge_values[k3i];
+                double depth = stage_ext - domain->bed_boundary_values[bi];
+                if (depth < 0) depth = 0;
                 domain->height_boundary_values[bi] = depth;
-                domain->xmom_boundary_values[bi]   = -wh0 * nx;
-                domain->ymom_boundary_values[bi]   = -wh0 * ny;
+                domain->xmom_boundary_values[bi] = -wh0 * nx;
+                domain->ymom_boundary_values[bi] = -wh0 * ny;
             }
             break;
 
         case HYDRO_BC_TRANSMISSIVE_STAGE:
             /* Copy interior stage, zero momentum */
-            domain->stage_boundary_values[bi]  = domain->stage_edge_values[k3i];
-            domain->bed_boundary_values[bi]    = domain->bed_edge_values[k3i];
+            domain->stage_boundary_values[bi] = domain->stage_edge_values[k3i];
+            domain->bed_boundary_values[bi] = domain->bed_edge_values[k3i];
             domain->height_boundary_values[bi] = domain->height_edge_values[k3i];
-            domain->xmom_boundary_values[bi]   = 0.0;
-            domain->ymom_boundary_values[bi]   = 0.0;
+            domain->xmom_boundary_values[bi] = 0.0;
+            domain->ymom_boundary_values[bi] = 0.0;
             break;
 
         case HYDRO_BC_TIME_SERIES:
             /* Time-series Q(t) — depth set by hydro_boundary_update_time_series()
              * before this call.  Fall through to DIRICHLET logic using boundary_stage_tag. */
             {
-                double depth = domain->boundary_stage_tag[tag];
-                domain->stage_boundary_values[bi]  = depth + domain->bed_edge_values[k3i];
-                domain->bed_boundary_values[bi]    = domain->bed_edge_values[k3i];
+                double stage_ext = domain->boundary_stage_tag[tag];
+                domain->stage_boundary_values[bi] = stage_ext;
+                domain->bed_boundary_values[bi] = domain->bed_edge_values[k3i];
+                double depth = stage_ext - domain->bed_boundary_values[bi];
+                if (depth < 0) depth = 0;
                 domain->height_boundary_values[bi] = depth;
-                domain->xmom_boundary_values[bi]   = 0.0;
-                domain->ymom_boundary_values[bi]   = 0.0;
+                domain->xmom_boundary_values[bi] = 0.0;
+                domain->ymom_boundary_values[bi] = 0.0;
             }
             break;
         }

@@ -5,6 +5,7 @@
 
 #ifdef __cplusplus
 extern "C" {
+
 #endif
 
 /* =========================================================================
@@ -17,10 +18,11 @@ extern "C" {
  * ========================================================================= */
 
 /* Search result: containing triangle and barycentric weights */
-typedef struct {
-    hydro_int triangle_index;  /* index of containing triangle, -1 if not found */
-    double sigma[3];           /* barycentric coordinates (sum to 1) */
-    hydro_int vertices[3];     /* vertex indices of the containing triangle */
+typedef struct
+{
+    hydro_int triangle_index; /* index of containing triangle, -1 if not found */
+    double sigma[3]; /* barycentric coordinates (sum to 1) */
+    hydro_int vertices[3]; /* vertex indices of the containing triangle */
 } hydro_interp_result_t;
 
 /* =========================================================================

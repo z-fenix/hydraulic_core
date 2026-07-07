@@ -26,7 +26,8 @@
  * Wall-clock timer (seconds)
  * ========================================================================== */
 
-static double wall_seconds(void) {
+static double wall_seconds(void)
+{
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
     return (double)ts.tv_sec + (double)ts.tv_nsec * 1e-9;
@@ -36,14 +37,17 @@ static double wall_seconds(void) {
  * Memory usage (MB) — Linux /proc/self/status
  * ========================================================================== */
 
-static long get_vmrss_mb(void) {
+static long get_vmrss_mb(void)
+{
     long mb = -1;
     FILE* f = fopen("/proc/self/status", "r");
     if (!f) return mb;
     char line[256];
-    while (fgets(line, sizeof(line), f)) {
+    while (fgets(line, sizeof(line), f))
+    {
         long val;
-        if (sscanf(line, "VmRSS: %ld kB", &val) == 1) {
+        if (sscanf(line, "VmRSS: %ld kB", &val) == 1)
+        {
             mb = val / 1024;
             break;
         }
@@ -64,13 +68,13 @@ static void print_yieldstep_progress(
 {
     /* Estimated time remaining — based on overall progress from evolve start */
     double progress = (finaltime > evolve_start_sim_time)
-        ? (sim_time - evolve_start_sim_time) / (finaltime - evolve_start_sim_time)
-        : 0.0;
+                          ? (sim_time - evolve_start_sim_time) / (finaltime - evolve_start_sim_time)
+                          : 0.0;
     double eta_sec = (progress > 1e-10) ? wall_elapsed / progress - wall_elapsed : 0.0;
     if (eta_sec < 0) eta_sec = 0;
 
     long eta_min = (long)(eta_sec / 60.0);
-    long eta_s   = (long)fmod(eta_sec, 60.0);
+    long eta_s = (long)fmod(eta_sec, 60.0);
 
     long mem_mb = get_vmrss_mb();
 
@@ -94,14 +98,18 @@ void hydro_update_timestep(
 {
     double dt;
 
-    if (domain->flux_timestep <= 0.0) {
+    if (domain->flux_timestep <= 0.0)
+    {
         dt = domain->evolve_max_timestep;
-    } else {
+    }
+    else
+    {
         dt = domain->CFL * domain->flux_timestep;
     }
 
     if (dt > domain->evolve_max_timestep) dt = domain->evolve_max_timestep;
-    if (dt < domain->evolve_min_timestep) {
+    if (dt < domain->evolve_min_timestep)
+    {
         fprintf(stderr, "hydro: timestep too small: %g < %g\n",
                 dt, domain->evolve_min_timestep);
         dt = domain->evolve_min_timestep;
@@ -110,7 +118,8 @@ void hydro_update_timestep(
     double remaining = finaltime - domain->time;
     if (dt > remaining) dt = remaining;
 
-    if (yieldstep > 0) {
+    if (yieldstep > 0)
+    {
         domain->yieldstep_counter++;
         double next_yield = domain->yieldstep_counter * yieldstep;
         double to_yield = next_yield - domain->time;
@@ -128,9 +137,12 @@ void hydro_evolve_one_euler_step(
     hydro_domain_t* domain, double yieldstep, double finaltime)
 {
     /* 1. Extrapolate centroid → edges (1st or 2nd order) */
-    if (domain->spatial_order == 1) {
+    if (domain->spatial_order == 1)
+    {
         hydro_quantity_extrapolate_first_order(domain);
-    } else {
+    }
+    else
+    {
         hydro_quantity_extrapolate_second_order_edge(domain);
     }
 
@@ -153,7 +165,8 @@ void hydro_evolve_one_euler_step(
     /* 7. Protect: ensure non-negative water depth, fix momentum in dry cells */
     {
         double mass_err = hydro_protect(domain);
-        if (mass_err > domain->minimum_allowed_height * 0.1) {
+        if (mass_err > domain->minimum_allowed_height * 0.1)
+        {
             fprintf(stderr, "hydro: protect mass error = %g (step %lld, t=%g)\n",
                     mass_err, (long long)domain->step, domain->time);
         }
@@ -162,7 +175,8 @@ void hydro_evolve_one_euler_step(
     /* 8. Secondary safety net: catch any cells still negative after protect */
     {
         hydro_int neg = hydro_fix_negative_cells(domain);
-        if (neg > 0) {
+        if (neg > 0)
+        {
             fprintf(stderr, "hydro: WARNING — %lld cells still negative after protect (step %lld)\n",
                     (long long)neg, (long long)domain->step);
         }
@@ -194,18 +208,20 @@ void hydro_evolve_one_rk3_step(
 
 int hydro_domain_evolve(
     hydro_domain_t* domain,
-    double          finaltime,
-    double          yieldstep)
+    double finaltime,
+    double yieldstep)
 {
     hydro_sww_t* sww = NULL;
     int sww_is_append = 0;
 
     /* Build SWW path from domain name + output_dir, if name is set */
-    if (domain->name[0] != '\0') {
+    if (domain->name[0] != '\0')
+    {
         char sww_path[5120];
         int n = snprintf(sww_path, sizeof(sww_path), "%s/%s.sww",
                          domain->output_dir, domain->name);
-        if (n >= (int)sizeof(sww_path)) {
+        if (n >= (int)sizeof(sww_path))
+        {
             fprintf(stderr, "hydro: SWW path too long\n");
             return -1;
         }
@@ -219,20 +235,25 @@ int hydro_domain_evolve(
         /* Create new SWW if evolving from t=0, otherwise append.
          * This is a semantic check: simulation time at zero means a fresh
          * start; any positive time means we are resuming a previous run. */
-        if (domain->time <= 0.0) {
+        if (domain->time <= 0.0)
+        {
             sww = hydro_sww_create(sww_path, domain, domain->starttime);
-        } else {
+        }
+        else
+        {
             sww = hydro_sww_open(sww_path, domain);
             sww_is_append = 1;
         }
 
-        if (!sww) {
+        if (!sww)
+        {
             fprintf(stderr, "hydro: failed to open SWW file '%s'\n", sww_path);
             return -1;
         }
 
         /* On first create, store initial frame */
-        if (!sww_is_append) {
+        if (!sww_is_append)
+        {
             double init_time = domain->time - domain->starttime;
             hydro_sww_store_timestep(sww, domain, init_time);
         }
@@ -241,17 +262,19 @@ int hydro_domain_evolve(
     printf("hydro: evolving to t=%g with yieldstep=%g\n", finaltime, yieldstep);
 
     /* ---- Progress-tracking state ---- */
-    double evolve_start_wall  = wall_seconds();
-    double evolve_start_sim   = domain->time;
-    double yield_wall_start   = evolve_start_wall;
+    double evolve_start_wall = wall_seconds();
+    double evolve_start_sim = domain->time;
+    double yield_wall_start = evolve_start_wall;
     long long yield_step_start = domain->step;
-    double yield_dt_min       = 1e100;
-    double yield_dt_max       = 0.0;
-    int first_yield           = 1;
+    double yield_dt_min = 1e100;
+    double yield_dt_max = 0.0;
+    int first_yield = 1;
 
-    while (domain->time < finaltime) {
+    while (domain->time < finaltime)
+    {
         /* Choose timestepping method */
-        switch (domain->timestepping_method) {
+        switch (domain->timestepping_method)
+        {
         case 1:
             hydro_evolve_one_euler_step(domain, yieldstep, finaltime);
             break;
@@ -282,31 +305,39 @@ int hydro_domain_evolve(
 
         /* Store to SWW at yieldstep intervals */
         int at_yield = 0;
-        if (sww && yieldstep > 0) {
+        if (sww && yieldstep > 0)
+        {
             double reltime = domain->time - domain->starttime;
             if (fabs(fmod(domain->time, yieldstep)) < domain->timestep * 0.5
-                || domain->time >= finaltime) {
+                || domain->time >= finaltime)
+            {
                 hydro_sww_store_timestep(sww, domain, reltime);
                 at_yield = 1;
             }
-        } else {
+        }
+        else
+        {
             /* No SWW output — print progress at yieldstep boundaries anyway */
-            if (yieldstep > 0) {
+            if (yieldstep > 0)
+            {
                 double next_yield = domain->yieldstep_counter * yieldstep;
                 if (fabs(domain->time - next_yield) < domain->timestep * 0.5
-                    || domain->time >= finaltime) {
+                    || domain->time >= finaltime)
+                {
                     at_yield = 1;
                 }
             }
         }
 
-        if (at_yield) {
+        if (at_yield)
+        {
             double wall_now = wall_seconds();
             double wall_elapsed = wall_now - evolve_start_wall;
             double wall_interval = wall_now - yield_wall_start;
 
             /* Only print if meaningful work was done */
-            if (first_yield || wall_interval > 0.001) {
+            if (first_yield || wall_interval > 0.001)
+            {
                 print_yieldstep_progress(
                     domain->time, wall_elapsed, wall_interval,
                     yield_dt_min, yield_dt_max,
@@ -317,17 +348,18 @@ int hydro_domain_evolve(
             }
 
             /* Reset per-interval tracking */
-            yield_wall_start  = wall_now;
-            yield_step_start  = domain->step;
-            yield_dt_min      = 1e100;
-            yield_dt_max      = 0.0;
+            yield_wall_start = wall_now;
+            yield_step_start = domain->step;
+            yield_dt_min = 1e100;
+            yield_dt_max = 0.0;
         }
     }
 
     printf("hydro: simulation complete (t=%g, %lld steps)\n",
            domain->time, (long long)domain->step);
 
-    if (sww) {
+    if (sww)
+    {
         hydro_sww_close(sww);
     }
 

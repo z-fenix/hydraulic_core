@@ -28,9 +28,9 @@ static inline void hydro_gradient(
     double q0, double q1, double q2,
     double* a, double* b)
 {
-    double det = (y2-y0)*(x1-x0) - (y1-y0)*(x2-x0);
-    *a = ((y2-y0)*(q1-q0) - (y1-y0)*(q2-q0)) / det;
-    *b = ((x1-x0)*(q2-q0) - (x2-x0)*(q1-q0)) / det;
+    double det = (y2 - y0) * (x1 - x0) - (y1 - y0) * (x2 - x0);
+    *a = ((y2 - y0) * (q1 - q0) - (y1 - y0) * (q2 - q0)) / det;
+    *b = ((x1 - x0) * (q2 - q0) - (x2 - x0) * (q1 - q0)) / det;
 }
 
 /* ==========================================================================
@@ -42,7 +42,7 @@ static inline void hydro_gradient2(
     double q0, double q1, double* a, double* b)
 {
     double xx = x1 - x0, yy = y1 - y0, qq = q1 - q0;
-    double det = xx*xx + yy*yy;
+    double det = xx * xx + yy * yy;
     *a = xx * qq / det;
     *b = yy * qq / det;
 }
@@ -59,9 +59,12 @@ static inline void hydro_compute_edge_diffs(
     double* dx0, double* dx1, double* dx2,
     double* dy0, double* dy1, double* dy2)
 {
-    *dx0 = x0 - cx; *dy0 = y0 - cy;
-    *dx1 = x1 - cx; *dy1 = y1 - cy;
-    *dx2 = x2 - cx; *dy2 = y2 - cy;
+    *dx0 = x0 - cx;
+    *dy0 = y0 - cy;
+    *dx1 = x1 - cx;
+    *dy1 = y1 - cy;
+    *dx2 = x2 - cx;
+    *dy2 = y2 - cy;
 }
 
 /* ==========================================================================
@@ -73,7 +76,7 @@ static inline void hydro_set_all_edge_values_from_centroid(
     double* centroid_vals, double* edge_vals)
 {
     double cv = centroid_vals[k];
-    edge_vals[k3]     = cv;
+    edge_vals[k3] = cv;
     edge_vals[k3 + 1] = cv;
     edge_vals[k3 + 2] = cv;
 }
@@ -82,7 +85,8 @@ static inline void hydro_set_all_edge_values_from_centroid(
  * Quantity update: Q_new = (Q_old + dt*E) / (1 - dt*SI)
  * ========================================================================== */
 
-void hydro_quantity_update(hydro_domain_t* domain, double timestep) {
+void hydro_quantity_update(hydro_domain_t* domain, double timestep)
+{
     hydro_int N = domain->number_of_elements;
 
     if (!domain->stage_centroid_values || !domain->stage_explicit_update) return;
@@ -94,7 +98,7 @@ void hydro_quantity_update(hydro_domain_t* domain, double timestep) {
         /* Stage */
         double s = domain->stage_centroid_values[k];
         if (s != 0.0) domain->stage_semi_implicit_update[k] /= s;
-        else          domain->stage_semi_implicit_update[k]  = 0.0;
+        else domain->stage_semi_implicit_update[k] = 0.0;
 
         double s_new = s + timestep * domain->stage_explicit_update[k];
         double denom = 1.0 - timestep * domain->stage_semi_implicit_update[k];
@@ -102,7 +106,8 @@ void hydro_quantity_update(hydro_domain_t* domain, double timestep) {
             s_new /= denom;
 
         /* Clamp: stage must stay at or above bed elevation */
-        if (domain->bed_centroid_values) {
+        if (domain->bed_centroid_values)
+        {
             double bed = domain->bed_centroid_values[k];
             if (s_new < bed) s_new = bed;
         }
@@ -118,7 +123,7 @@ void hydro_quantity_update(hydro_domain_t* domain, double timestep) {
     for (hydro_int k = 0; k < N; k++) {
         double xm = domain->xmom_centroid_values[k];
         if (xm != 0.0) domain->xmom_semi_implicit_update[k] /= xm;
-        else           domain->xmom_semi_implicit_update[k]  = 0.0;
+        else domain->xmom_semi_implicit_update[k] = 0.0;
 
         domain->xmom_centroid_values[k] += timestep * domain->xmom_explicit_update[k];
         double denom = 1.0 - timestep * domain->xmom_semi_implicit_update[k];
@@ -135,7 +140,7 @@ void hydro_quantity_update(hydro_domain_t* domain, double timestep) {
     for (hydro_int k = 0; k < N; k++) {
         double ym = domain->ymom_centroid_values[k];
         if (ym != 0.0) domain->ymom_semi_implicit_update[k] /= ym;
-        else           domain->ymom_semi_implicit_update[k]  = 0.0;
+        else domain->ymom_semi_implicit_update[k] = 0.0;
 
         domain->ymom_centroid_values[k] += timestep * domain->ymom_explicit_update[k];
         double denom = 1.0 - timestep * domain->ymom_semi_implicit_update[k];
@@ -167,19 +172,22 @@ static void hydro_compute_gradients(
 
         /* Dry cell: no gradient (use first-order) */
         if (domain->height_centroid_values &&
-            domain->height_centroid_values[k] < domain->minimum_allowed_height) {
+            domain->height_centroid_values[k] < domain->minimum_allowed_height)
+        {
             x_gradient[k] = 0.0;
             y_gradient[k] = 0.0;
             continue;
         }
 
-        if (domain->number_of_boundaries[k] < 2) {
+        if (domain->number_of_boundaries[k] < 2)
+        {
             /* Two or three true neighbours — fit a plane */
             hydro_int k0 = domain->surrogate_neighbours[k3];
             hydro_int k1 = domain->surrogate_neighbours[k3 + 1];
             hydro_int k2 = domain->surrogate_neighbours[k3 + 2];
 
-            if (k0 == k1 || k1 == k2) {
+            if (k0 == k1 || k1 == k2)
+            {
                 x_gradient[k] = 0.0;
                 y_gradient[k] = 0.0;
                 continue;
@@ -189,38 +197,47 @@ static void hydro_compute_gradients(
             double q1 = centroid_values[k1];
             double q2 = centroid_values[k2];
 
-            double x0 = domain->centroid_coordinates[2*k0];
-            double y0 = domain->centroid_coordinates[2*k0 + 1];
-            double x1 = domain->centroid_coordinates[2*k1];
-            double y1 = domain->centroid_coordinates[2*k1 + 1];
-            double x2 = domain->centroid_coordinates[2*k2];
-            double y2 = domain->centroid_coordinates[2*k2 + 1];
+            double x0 = domain->centroid_coordinates[2 * k0];
+            double y0 = domain->centroid_coordinates[2 * k0 + 1];
+            double x1 = domain->centroid_coordinates[2 * k1];
+            double y1 = domain->centroid_coordinates[2 * k1 + 1];
+            double x2 = domain->centroid_coordinates[2 * k2];
+            double y2 = domain->centroid_coordinates[2 * k2 + 1];
 
-            hydro_gradient(x0,y0, x1,y1, x2,y2, q0,q1,q2,
-                          &x_gradient[k], &y_gradient[k]);
-
-        } else if (domain->number_of_boundaries[k] == 2) {
+            hydro_gradient(x0, y0, x1, y1, x2, y2, q0, q1, q2,
+                           &x_gradient[k], &y_gradient[k]);
+        }
+        else if (domain->number_of_boundaries[k] == 2)
+        {
             /* One true neighbour — gradient along that direction */
             hydro_int k0 = k; /* self */
-            for (int i = 0; i < 3; i++) {
+            for (int i = 0; i < 3; i++)
+            {
                 hydro_int nb = domain->surrogate_neighbours[k3 + i];
-                if (nb != k) { k0 = nb; break; }
+                if (nb != k)
+                {
+                    k0 = nb;
+                    break;
+                }
             }
-            if (k0 == k) {
+            if (k0 == k)
+            {
                 x_gradient[k] = 0.0;
                 y_gradient[k] = 0.0;
                 continue;
             }
 
             double q0 = centroid_values[k0], q1 = centroid_values[k];
-            double x0 = domain->centroid_coordinates[2*k0];
-            double y0 = domain->centroid_coordinates[2*k0 + 1];
-            double x1 = domain->centroid_coordinates[2*k];
-            double y1 = domain->centroid_coordinates[2*k + 1];
+            double x0 = domain->centroid_coordinates[2 * k0];
+            double y0 = domain->centroid_coordinates[2 * k0 + 1];
+            double x1 = domain->centroid_coordinates[2 * k];
+            double y1 = domain->centroid_coordinates[2 * k + 1];
 
-            hydro_gradient2(x0,y0, x1,y1, q0,q1,
-                           &x_gradient[k], &y_gradient[k]);
-        } else {
+            hydro_gradient2(x0, y0, x1, y1, q0, q1,
+                            &x_gradient[k], &y_gradient[k]);
+        }
+        else
+        {
             /* No true neighbours — first-order fallback */
             x_gradient[k] = 0.0;
             y_gradient[k] = 0.0;
@@ -252,8 +269,8 @@ static void hydro_extrapolate_from_gradient(
 
         double cx = domain->centroid_coordinates[k2];
         double cy = domain->centroid_coordinates[k2 + 1];
-        double a  = x_gradient[k];
-        double b  = y_gradient[k];
+        double a = x_gradient[k];
+        double b = y_gradient[k];
         double cv = centroid_values[k];
 
         /* Vertex coordinates */
@@ -265,14 +282,14 @@ static void hydro_extrapolate_from_gradient(
         double y2 = domain->vertex_coordinates[k6 + 5];
 
         /* Extrapolate to vertices */
-        vertex_values[k3]     = cv + a*(x0-cx) + b*(y0-cy);
-        vertex_values[k3 + 1] = cv + a*(x1-cx) + b*(y1-cy);
-        vertex_values[k3 + 2] = cv + a*(x2-cx) + b*(y2-cy);
+        vertex_values[k3] = cv + a * (x0 - cx) + b * (y0 - cy);
+        vertex_values[k3 + 1] = cv + a * (x1 - cx) + b * (y1 - cy);
+        vertex_values[k3 + 2] = cv + a * (x2 - cx) + b * (y2 - cy);
 
         /* Average vertices → edges */
-        edge_values[k3]     = 0.5 * (vertex_values[k3 + 1] + vertex_values[k3 + 2]);
+        edge_values[k3] = 0.5 * (vertex_values[k3 + 1] + vertex_values[k3 + 2]);
         edge_values[k3 + 1] = 0.5 * (vertex_values[k3 + 2] + vertex_values[k3]);
-        edge_values[k3 + 2] = 0.5 * (vertex_values[k3]     + vertex_values[k3 + 1]);
+        edge_values[k3 + 2] = 0.5 * (vertex_values[k3] + vertex_values[k3 + 1]);
     }
 }
 
@@ -301,7 +318,8 @@ static void hydro_limit_edges(
         double qmin = qc, qmax = qc;
 
         /* Find min/max among neighbours */
-        for (int i = 0; i < 3; i++) {
+        for (int i = 0; i < 3; i++)
+        {
             hydro_int n = domain->neighbours[k3 + i];
             double qn = (n >= 0) ? centroid_values[n] : qc;
             if (qn < qmin) qmin = qn;
@@ -311,7 +329,8 @@ static void hydro_limit_edges(
         /* Compute limiter phi */
         double phi = 1.0;
         double dqa[3];
-        for (int i = 0; i < 3; i++) {
+        for (int i = 0; i < 3; i++)
+        {
             double dq = edge_values[k3 + i] - qc;
             dqa[i] = dq;
 
@@ -327,14 +346,14 @@ static void hydro_limit_edges(
         x_gradient[k] *= phi;
         y_gradient[k] *= phi;
 
-        edge_values[k3]     = qc + phi * dqa[0];
+        edge_values[k3] = qc + phi * dqa[0];
         edge_values[k3 + 1] = qc + phi * dqa[1];
         edge_values[k3 + 2] = qc + phi * dqa[2];
 
         /* Reconstruct vertex values from limited edges */
-        vertex_values[k3]     = edge_values[k3 + 1] + edge_values[k3 + 2] - edge_values[k3];
-        vertex_values[k3 + 1] = edge_values[k3 + 2] + edge_values[k3]     - edge_values[k3 + 1];
-        vertex_values[k3 + 2] = edge_values[k3]     + edge_values[k3 + 1] - edge_values[k3 + 2];
+        vertex_values[k3] = edge_values[k3 + 1] + edge_values[k3 + 2] - edge_values[k3];
+        vertex_values[k3 + 1] = edge_values[k3 + 2] + edge_values[k3] - edge_values[k3 + 1];
+        vertex_values[k3 + 2] = edge_values[k3] + edge_values[k3 + 1] - edge_values[k3 + 2];
     }
 }
 
@@ -345,85 +364,86 @@ static void hydro_limit_edges(
  * It computes gradients, extrapolates to edges, and limits.
  * ========================================================================== */
 
-void hydro_quantity_extrapolate_second_order_edge(hydro_domain_t* domain) {
+void hydro_quantity_extrapolate_second_order_edge(hydro_domain_t* domain)
+{
     /* Compute gradients for each conserved quantity */
     /* Use the x_centroid_work / y_centroid_work arrays for temporary gradient storage */
 
     /* Stage */
     hydro_compute_gradients(domain,
-        domain->stage_centroid_values,
-        domain->x_centroid_work,
-        domain->y_centroid_work);
+                            domain->stage_centroid_values,
+                            domain->x_centroid_work,
+                            domain->y_centroid_work);
     hydro_extrapolate_from_gradient(domain,
-        domain->stage_centroid_values,
-        domain->stage_vertex_values,
-        domain->stage_edge_values,
-        domain->x_centroid_work,
-        domain->y_centroid_work);
+                                    domain->stage_centroid_values,
+                                    domain->stage_vertex_values,
+                                    domain->stage_edge_values,
+                                    domain->x_centroid_work,
+                                    domain->y_centroid_work);
     hydro_limit_edges(domain,
-        domain->stage_centroid_values,
-        domain->stage_vertex_values,
-        domain->stage_edge_values,
-        domain->x_centroid_work,
-        domain->y_centroid_work,
-        domain->beta_w);
+                      domain->stage_centroid_values,
+                      domain->stage_vertex_values,
+                      domain->stage_edge_values,
+                      domain->x_centroid_work,
+                      domain->y_centroid_work,
+                      domain->beta_w);
 
     /* X-momentum */
     hydro_compute_gradients(domain,
-        domain->xmom_centroid_values,
-        domain->x_centroid_work,
-        domain->y_centroid_work);
+                            domain->xmom_centroid_values,
+                            domain->x_centroid_work,
+                            domain->y_centroid_work);
     hydro_extrapolate_from_gradient(domain,
-        domain->xmom_centroid_values,
-        domain->xmom_vertex_values,
-        domain->xmom_edge_values,
-        domain->x_centroid_work,
-        domain->y_centroid_work);
+                                    domain->xmom_centroid_values,
+                                    domain->xmom_vertex_values,
+                                    domain->xmom_edge_values,
+                                    domain->x_centroid_work,
+                                    domain->y_centroid_work);
     hydro_limit_edges(domain,
-        domain->xmom_centroid_values,
-        domain->xmom_vertex_values,
-        domain->xmom_edge_values,
-        domain->x_centroid_work,
-        domain->y_centroid_work,
-        domain->beta_uh);
+                      domain->xmom_centroid_values,
+                      domain->xmom_vertex_values,
+                      domain->xmom_edge_values,
+                      domain->x_centroid_work,
+                      domain->y_centroid_work,
+                      domain->beta_uh);
 
     /* Y-momentum */
     hydro_compute_gradients(domain,
-        domain->ymom_centroid_values,
-        domain->x_centroid_work,
-        domain->y_centroid_work);
+                            domain->ymom_centroid_values,
+                            domain->x_centroid_work,
+                            domain->y_centroid_work);
     hydro_extrapolate_from_gradient(domain,
-        domain->ymom_centroid_values,
-        domain->ymom_vertex_values,
-        domain->ymom_edge_values,
-        domain->x_centroid_work,
-        domain->y_centroid_work);
+                                    domain->ymom_centroid_values,
+                                    domain->ymom_vertex_values,
+                                    domain->ymom_edge_values,
+                                    domain->x_centroid_work,
+                                    domain->y_centroid_work);
     hydro_limit_edges(domain,
-        domain->ymom_centroid_values,
-        domain->ymom_vertex_values,
-        domain->ymom_edge_values,
-        domain->x_centroid_work,
-        domain->y_centroid_work,
-        domain->beta_vh);
+                      domain->ymom_centroid_values,
+                      domain->ymom_vertex_values,
+                      domain->ymom_edge_values,
+                      domain->x_centroid_work,
+                      domain->y_centroid_work,
+                      domain->beta_vh);
 
     /* Height and bed */
     hydro_compute_gradients(domain,
-        domain->height_centroid_values,
-        domain->x_centroid_work,
-        domain->y_centroid_work);
+                            domain->height_centroid_values,
+                            domain->x_centroid_work,
+                            domain->y_centroid_work);
     hydro_extrapolate_from_gradient(domain,
-        domain->height_centroid_values,
-        domain->height_vertex_values,
-        domain->height_edge_values,
-        domain->x_centroid_work,
-        domain->y_centroid_work);
+                                    domain->height_centroid_values,
+                                    domain->height_vertex_values,
+                                    domain->height_edge_values,
+                                    domain->x_centroid_work,
+                                    domain->y_centroid_work);
     hydro_limit_edges(domain,
-        domain->height_centroid_values,
-        domain->height_vertex_values,
-        domain->height_edge_values,
-        domain->x_centroid_work,
-        domain->y_centroid_work,
-        domain->beta_w);
+                      domain->height_centroid_values,
+                      domain->height_vertex_values,
+                      domain->height_edge_values,
+                      domain->x_centroid_work,
+                      domain->y_centroid_work,
+                      domain->beta_w);
 
     /* Bed from height + stage */
     hydro_int N = domain->number_of_elements;
@@ -432,7 +452,7 @@ void hydro_quantity_extrapolate_second_order_edge(hydro_domain_t* domain) {
     #endif
     for (hydro_int k = 0; k < N; k++) {
         hydro_int k3 = 3 * k;
-        domain->bed_edge_values[k3]     = domain->stage_edge_values[k3]     - domain->height_edge_values[k3];
+        domain->bed_edge_values[k3] = domain->stage_edge_values[k3] - domain->height_edge_values[k3];
         domain->bed_edge_values[k3 + 1] = domain->stage_edge_values[k3 + 1] - domain->height_edge_values[k3 + 1];
         domain->bed_edge_values[k3 + 2] = domain->stage_edge_values[k3 + 2] - domain->height_edge_values[k3 + 2];
     }
@@ -442,7 +462,8 @@ void hydro_quantity_extrapolate_second_order_edge(hydro_domain_t* domain) {
  * Full second-order extrapolation (centroid→vertices→edges)
  * ========================================================================== */
 
-void hydro_quantity_extrapolate_second_order(hydro_domain_t* domain) {
+void hydro_quantity_extrapolate_second_order(hydro_domain_t* domain)
+{
     /* Same as edge version but also populates vertex values for storage */
     hydro_quantity_extrapolate_second_order_edge(domain);
 }
@@ -451,18 +472,25 @@ void hydro_quantity_extrapolate_second_order(hydro_domain_t* domain) {
  * First-order extrapolation
  * ========================================================================== */
 
-void hydro_quantity_extrapolate_first_order(hydro_domain_t* domain) {
+void hydro_quantity_extrapolate_first_order(hydro_domain_t* domain)
+{
     hydro_int N = domain->number_of_elements;
 
-    struct { double** c; double** e; double** v; } q[] = {
-        {&domain->stage_centroid_values,  &domain->stage_edge_values,  &domain->stage_vertex_values},
-        {&domain->xmom_centroid_values,   &domain->xmom_edge_values,   &domain->xmom_vertex_values},
-        {&domain->ymom_centroid_values,   &domain->ymom_edge_values,   &domain->ymom_vertex_values},
-        {&domain->bed_centroid_values,    &domain->bed_edge_values,    &domain->bed_vertex_values},
+    struct
+    {
+        double** c;
+        double** e;
+        double** v;
+    } q[] = {
+        {&domain->stage_centroid_values, &domain->stage_edge_values, &domain->stage_vertex_values},
+        {&domain->xmom_centroid_values, &domain->xmom_edge_values, &domain->xmom_vertex_values},
+        {&domain->ymom_centroid_values, &domain->ymom_edge_values, &domain->ymom_vertex_values},
+        {&domain->bed_centroid_values, &domain->bed_edge_values, &domain->bed_vertex_values},
         {&domain->height_centroid_values, &domain->height_edge_values, &domain->height_vertex_values},
     };
 
-    for (int qi = 0; qi < 5; qi++) {
+    for (int qi = 0; qi < 5; qi++)
+    {
         if (!*q[qi].c) continue;
         #ifdef _OPENMP
         #pragma omp parallel for simd schedule(static)
@@ -470,13 +498,15 @@ void hydro_quantity_extrapolate_first_order(hydro_domain_t* domain) {
         for (hydro_int k = 0; k < N; k++) {
             hydro_int k3 = 3 * k;
             double val = (*q[qi].c)[k];
-            if (*q[qi].e) {
-                (*q[qi].e)[k3]     = val;
+            if (*q[qi].e)
+            {
+                (*q[qi].e)[k3] = val;
                 (*q[qi].e)[k3 + 1] = val;
                 (*q[qi].e)[k3 + 2] = val;
             }
-            if (*q[qi].v) {
-                (*q[qi].v)[k3]     = val;
+            if (*q[qi].v)
+            {
+                (*q[qi].v)[k3] = val;
                 (*q[qi].v)[k3 + 1] = val;
                 (*q[qi].v)[k3 + 2] = val;
             }
@@ -489,27 +519,33 @@ void hydro_quantity_extrapolate_first_order(hydro_domain_t* domain) {
  * Ported from sw_domain_openmp.c:_openmp_distribute_edges_to_vertices()
  * ========================================================================== */
 
-void hydro_quantity_distribute_edges_to_vertices(hydro_domain_t* domain) {
+void hydro_quantity_distribute_edges_to_vertices(hydro_domain_t* domain)
+{
     hydro_int N = domain->number_of_elements;
 
-    struct { double* e; double* v; } q[] = {
-        {domain->stage_edge_values,  domain->stage_vertex_values},
-        {domain->xmom_edge_values,   domain->xmom_vertex_values},
-        {domain->ymom_edge_values,   domain->ymom_vertex_values},
-        {domain->bed_edge_values,    domain->bed_vertex_values},
+    struct
+    {
+        double* e;
+        double* v;
+    } q[] = {
+        {domain->stage_edge_values, domain->stage_vertex_values},
+        {domain->xmom_edge_values, domain->xmom_vertex_values},
+        {domain->ymom_edge_values, domain->ymom_vertex_values},
+        {domain->bed_edge_values, domain->bed_vertex_values},
         {domain->height_edge_values, domain->height_vertex_values},
     };
 
-    for (int qi = 0; qi < 5; qi++) {
+    for (int qi = 0; qi < 5; qi++)
+    {
         if (!q[qi].e || !q[qi].v) continue;
         #ifdef _OPENMP
         #pragma omp parallel for simd schedule(static)
         #endif
         for (hydro_int k = 0; k < N; k++) {
             hydro_int k3 = 3 * k;
-            q[qi].v[k3]     = q[qi].e[k3 + 1] + q[qi].e[k3 + 2] - q[qi].e[k3];
-            q[qi].v[k3 + 1] = q[qi].e[k3 + 2] + q[qi].e[k3]     - q[qi].e[k3 + 1];
-            q[qi].v[k3 + 2] = q[qi].e[k3]     + q[qi].e[k3 + 1] - q[qi].e[k3 + 2];
+            q[qi].v[k3] = q[qi].e[k3 + 1] + q[qi].e[k3 + 2] - q[qi].e[k3];
+            q[qi].v[k3 + 1] = q[qi].e[k3 + 2] + q[qi].e[k3] - q[qi].e[k3 + 1];
+            q[qi].v[k3 + 2] = q[qi].e[k3] + q[qi].e[k3 + 1] - q[qi].e[k3 + 2];
         }
     }
 }
@@ -518,7 +554,8 @@ void hydro_quantity_distribute_edges_to_vertices(hydro_domain_t* domain) {
  * Backup / SAXPY for RK multi-stage
  * ========================================================================== */
 
-void hydro_quantity_backup(hydro_domain_t* domain) {
+void hydro_quantity_backup(hydro_domain_t* domain)
+{
     hydro_int N = domain->number_of_elements;
     if (!domain->stage_backup_values || !domain->stage_centroid_values) return;
 
@@ -527,12 +564,13 @@ void hydro_quantity_backup(hydro_domain_t* domain) {
     #endif
     for (hydro_int k = 0; k < N; k++) {
         domain->stage_backup_values[k] = domain->stage_centroid_values[k];
-        domain->xmom_backup_values[k]  = domain->xmom_centroid_values[k];
-        domain->ymom_backup_values[k]  = domain->ymom_centroid_values[k];
+        domain->xmom_backup_values[k] = domain->xmom_centroid_values[k];
+        domain->ymom_backup_values[k] = domain->ymom_centroid_values[k];
     }
 }
 
-void hydro_quantity_saxpy(hydro_domain_t* domain, double a, double b, double c) {
+void hydro_quantity_saxpy(hydro_domain_t* domain, double a, double b, double c)
+{
     hydro_int N = domain->number_of_elements;
     if (!domain->stage_backup_values || !domain->stage_centroid_values) return;
 
@@ -547,10 +585,11 @@ void hydro_quantity_saxpy(hydro_domain_t* domain, double a, double b, double c) 
         domain->ymom_centroid_values[k] =
             a * domain->ymom_backup_values[k] + b * domain->ymom_centroid_values[k];
 
-        if (c != 0.0) {
+        if (c != 0.0)
+        {
             domain->stage_centroid_values[k] /= c;
-            domain->xmom_centroid_values[k]  /= c;
-            domain->ymom_centroid_values[k]  /= c;
+            domain->xmom_centroid_values[k] /= c;
+            domain->ymom_centroid_values[k] /= c;
         }
     }
 }
@@ -559,7 +598,8 @@ void hydro_quantity_saxpy(hydro_domain_t* domain, double a, double b, double c) 
  * Update derived quantities: height, velocity from conserved
  * ========================================================================== */
 
-void hydro_quantity_update_derived(hydro_domain_t* domain) {
+void hydro_quantity_update_derived(hydro_domain_t* domain)
+{
     hydro_int N = domain->number_of_elements;
     hydro_int n_edges = domain->number_of_edges;
     double h0 = domain->minimum_allowed_height;
@@ -600,20 +640,25 @@ void hydro_quantity_update_derived(hydro_domain_t* domain) {
         /* Ensure non-negative water depth:
          * If stage is below bed, raise stage to bed so height ≥ 0.
          * Then clamp height to minimum allowed height h0 for velocity safety. */
-        if (h < 0.0) {
+        if (h < 0.0)
+        {
             stage = bed;
             domain->stage_centroid_values[k] = bed;
-            h = h0;  /* minimum wet height for velocity protection */
-        } else if (h < h0) {
+            h = h0; /* minimum wet height for velocity protection */
+        }
+        else if (h < h0)
+        {
             h = h0;
         }
         domain->height_centroid_values[k] = h;
 
-        if (domain->xmom_centroid_values) {
+        if (domain->xmom_centroid_values)
+        {
             domain->xvelocity_centroid_values[k] =
                 domain->xmom_centroid_values[k] / h;
         }
-        if (domain->ymom_centroid_values) {
+        if (domain->ymom_centroid_values)
+        {
             domain->yvelocity_centroid_values[k] =
                 domain->ymom_centroid_values[k] / h;
         }

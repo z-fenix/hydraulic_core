@@ -6,6 +6,7 @@
 
 #ifdef __cplusplus
 extern "C" {
+
 #endif
 
 /** Opaque handle for SWW file writer */
@@ -20,9 +21,9 @@ typedef struct hydro_sww_t hydro_sww_t;
  * @return            SWW file handle, or NULL on error
  */
 hydro_sww_t* hydro_sww_create(
-    const char*           path,
+    const char* path,
     const hydro_domain_t* domain,
-    double                starttime);
+    double starttime);
 
 /**
  * Open an existing SWW file for appending timesteps.
@@ -35,7 +36,7 @@ hydro_sww_t* hydro_sww_create(
  * @return        SWW file handle, or NULL on error
  */
 hydro_sww_t* hydro_sww_open(
-    const char*           path,
+    const char* path,
     const hydro_domain_t* domain);
 
 /**
@@ -49,9 +50,9 @@ hydro_sww_t* hydro_sww_open(
  * @return 0 on success
  */
 int hydro_sww_store_timestep(
-    hydro_sww_t*         sww,
+    hydro_sww_t* sww,
     const hydro_domain_t* domain,
-    double               time);
+    double time);
 
 /**
  * Close the SWW file.

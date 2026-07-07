@@ -10,33 +10,38 @@
  * Ported from anuga/shallow_water/boundaries.py
  * ========================================================================= */
 
-typedef enum {
-    HYDRO_BC_NONE          = 0,   /* unset / interior  */
-    HYDRO_BC_REFLECTIVE    = 1,   /* reflective wall   */
-    HYDRO_BC_DIRICHLET     = 2,   /* fixed stage, zero momentum          */
-    HYDRO_BC_TRANSMISSIVE  = 3,   /* copy interior momentum, set stage   */
-    HYDRO_BC_TIME          = 4,   /* time-varying stage, zero momentum   */
-    HYDRO_BC_DIRICHLET_DISCHARGE = 5,  /* fixed stage + inward normal discharge */
-    HYDRO_BC_TRANSMISSIVE_STAGE   = 6,  /* transmissive stage, zero momentum   */
-    HYDRO_BC_TIME_SERIES   = 7,   /* flow rate Q(t) → derive stage+mom   */
+typedef enum
+{
+    HYDRO_BC_NONE = 0, /* unset / interior  */
+    HYDRO_BC_REFLECTIVE = 1, /* reflective wall   */
+    HYDRO_BC_DIRICHLET = 2, /* fixed stage, zero momentum          */
+    HYDRO_BC_TRANSMISSIVE = 3, /* copy interior momentum, set stage   */
+    HYDRO_BC_TIME = 4, /* time-varying stage, zero momentum   */
+    HYDRO_BC_DIRICHLET_DISCHARGE = 5, /* fixed stage + inward normal discharge */
+    HYDRO_BC_TRANSMISSIVE_STAGE = 6, /* transmissive stage, zero momentum   */
+    HYDRO_BC_TIME_SERIES = 7, /* flow rate Q(t) → derive stage+mom   */
 } hydro_bc_type_t;
 
 /* Parameters for boundary conditions */
-typedef struct {
-    double depth;    /* water depth (m), used by Dirichlet/Time BCs */
-    double wh0;      /* discharge in m^2/s, used by Dirichlet_discharge */
+typedef struct
+{
+    double depth; /* water depth (m), used by Dirichlet/Time BCs */
+    double wh0; /* discharge in m^2/s, used by Dirichlet_discharge */
 } hydro_bc_params_t;
 
 /* Time-series boundary data — stores Q(t) for HYDRO_BC_TIME_SERIES */
-typedef struct {
-    double* times;      /* [n_points] time values (seconds) */
-    double* q_values;   /* [n_points] discharge values (m³/s) */
-    int     n_points;
-    double  default_stage; /* fallback stage when Q out of range */
+typedef struct
+{
+    double* times; /* [n_points] time values (seconds) */
+    double* q_values; /* [n_points] discharge values (m³/s) */
+    int n_points;
+    double default_stage; /* fallback stage when Q out of range */
 } hydro_time_series_t;
 
 #ifdef __cplusplus
 extern "C" {
+
+
 #endif
 
 /* =========================================================================
@@ -56,7 +61,7 @@ extern "C" {
  */
 void hydro_domain_set_boundary(
     hydro_domain_t* domain,
-    hydro_int       boundary_tag,
+    hydro_int boundary_tag,
     hydro_bc_type_t bc_type,
     const hydro_bc_params_t* bc_params);
 
@@ -75,11 +80,11 @@ void hydro_domain_set_boundary(
  */
 void hydro_boundary_set_time_series(
     hydro_domain_t* domain,
-    hydro_int       boundary_tag,
-    const double*   times,
-    const double*   q_values,
-    int             n_points,
-    double          default_stage);
+    hydro_int boundary_tag,
+    const double* times,
+    const double* q_values,
+    int n_points,
+    double default_stage);
 
 /**
  * Update stage/momentum boundary values for HYDRO_BC_TIME_SERIES
@@ -96,8 +101,8 @@ void hydro_boundary_set_time_series(
  */
 void hydro_boundary_update_time_series(
     hydro_domain_t* domain,
-    hydro_int       boundary_tag,
-    double          current_time);
+    hydro_int boundary_tag,
+    double current_time);
 
 /**
  * Update stage/height/momentum boundary values for Dirichlet/Time BCs
@@ -111,10 +116,10 @@ void hydro_boundary_update_time_series(
  */
 void hydro_boundary_update_stage_time(
     hydro_domain_t* domain,
-    hydro_int       boundary_tag,
-    double          depth,
-    double          xmom,
-    double          ymom);
+    hydro_int boundary_tag,
+    double depth,
+    double xmom,
+    double ymom);
 
 /* =========================================================================
  * Boundary evaluation (called once per timestep)
@@ -137,7 +142,7 @@ void hydro_boundary_update(hydro_domain_t* domain);
  */
 void hydro_boundary_evaluate_reflective_segment(
     hydro_domain_t* domain,
-    hydro_int       num_edges,
+    hydro_int num_edges,
     const hydro_int* edge_segment,
     const hydro_int* vol_ids,
     const hydro_int* edge_ids);
@@ -147,11 +152,11 @@ void hydro_boundary_evaluate_reflective_segment(
  */
 void hydro_boundary_evaluate_dirichlet_segment(
     hydro_domain_t* domain,
-    hydro_int       num_edges,
+    hydro_int num_edges,
     const hydro_int* edge_segment,
     const hydro_int* vol_ids,
     const hydro_int* edge_ids,
-    double          stage);
+    double stage);
 
 /**
  * Evaluate Transmissive BC: copy interior momentum, optionally set stage.
@@ -159,24 +164,24 @@ void hydro_boundary_evaluate_dirichlet_segment(
  */
 void hydro_boundary_evaluate_transmissive_segment(
     hydro_domain_t* domain,
-    hydro_int       num_edges,
+    hydro_int num_edges,
     const hydro_int* edge_segment,
     const hydro_int* vol_ids,
     const hydro_int* edge_ids,
-    double          external_stage,
-    int             set_stage);
+    double external_stage,
+    int set_stage);
 
 /**
  * Evaluate Dirichlet discharge BC: fixed stage + momentum in inward normal.
  */
 void hydro_boundary_evaluate_discharge_segment(
     hydro_domain_t* domain,
-    hydro_int       num_edges,
+    hydro_int num_edges,
     const hydro_int* edge_segment,
     const hydro_int* vol_ids,
     const hydro_int* edge_ids,
-    double          stage,
-    double          discharge);
+    double stage,
+    double discharge);
 
 #ifdef __cplusplus
 }

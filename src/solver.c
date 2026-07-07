@@ -14,25 +14,30 @@
  * Vector helpers (avoiding external BLAS dependency)
  * ========================================================================= */
 
-static double dot(const double* a, const double* b, hydro_int n) {
+static double dot(const double* a, const double* b, hydro_int n)
+{
     double s = 0.0;
     for (hydro_int i = 0; i < n; i++) s += a[i] * b[i];
     return s;
 }
 
-static double norm2(const double* a, hydro_int n) {
+static double norm2(const double* a, hydro_int n)
+{
     return sqrt(dot(a, a, n));
 }
 
-static void axpy(double alpha, const double* x, double* y, hydro_int n) {
+static void axpy(double alpha, const double* x, double* y, hydro_int n)
+{
     for (hydro_int i = 0; i < n; i++) y[i] += alpha * x[i];
 }
 
-static void scal(double alpha, double* x, hydro_int n) {
+static void scal(double alpha, double* x, hydro_int n)
+{
     for (hydro_int i = 0; i < n; i++) x[i] *= alpha;
 }
 
-static void copy_vec(const double* src, double* dst, hydro_int n) {
+static void copy_vec(const double* src, double* dst, hydro_int n)
+{
     memcpy(dst, src, (size_t)n * sizeof(double));
 }
 
@@ -54,7 +59,13 @@ int hydro_conjugate_gradient_solve(
     double* r = (double*)calloc((size_t)N, sizeof(double));
     double* p = (double*)calloc((size_t)N, sizeof(double));
     double* Ap = (double*)calloc((size_t)N, sizeof(double));
-    if (!r || !p || !Ap) { free(r); free(p); free(Ap); return -1; }
+    if (!r || !p || !Ap)
+    {
+        free(r);
+        free(p);
+        free(Ap);
+        return -1;
+    }
 
     /* r = b - A*x */
     hydro_sparse_csr_mv(A, x, r);
@@ -67,13 +78,17 @@ int hydro_conjugate_gradient_solve(
     double rnorm = norm2(r, N);
 
     /* Initial check */
-    if (rnorm <= tol_abs) {
-        if (stats) {
+    if (rnorm <= tol_abs)
+    {
+        if (stats)
+        {
             stats->iterations = 0;
             stats->residual = rnorm;
             stats->converged = 1;
         }
-        free(r); free(p); free(Ap);
+        free(r);
+        free(p);
+        free(Ap);
         return 0;
     }
 
@@ -81,7 +96,8 @@ int hydro_conjugate_gradient_solve(
     copy_vec(r, p, N);
 
     hydro_int iter;
-    for (iter = 0; iter < max_iter; iter++) {
+    for (iter = 0; iter < max_iter; iter++)
+    {
         /* Ap = A * p */
         hydro_sparse_csr_mv(A, p, Ap);
 
@@ -99,7 +115,8 @@ int hydro_conjugate_gradient_solve(
         double rsq_new = dot(r, r, N);
 
         rnorm = sqrt(rsq_new);
-        if (rnorm <= tol_abs) {
+        if (rnorm <= tol_abs)
+        {
             iter++;
             break;
         }
@@ -110,13 +127,16 @@ int hydro_conjugate_gradient_solve(
         axpy(1.0, r, p, N);
     }
 
-    if (stats) {
+    if (stats)
+    {
         stats->iterations = iter;
         stats->residual = rnorm;
         stats->converged = (rnorm <= tol_abs) ? 1 : 0;
     }
 
-    free(r); free(p); free(Ap);
+    free(r);
+    free(p);
+    free(Ap);
     return 0;
 }
 
@@ -141,12 +161,19 @@ int hydro_parabolic_cg_solve(
     double* r = (double*)calloc((size_t)N, sizeof(double));
     double* p = (double*)calloc((size_t)N, sizeof(double));
     double* Ap = (double*)calloc((size_t)N, sizeof(double));
-    if (!r || !p || !Ap) { free(r); free(p); free(Ap); return -1; }
+    if (!r || !p || !Ap)
+    {
+        free(r);
+        free(p);
+        free(Ap);
+        return -1;
+    }
 
     /* r = b - (I - dt*L)*x = b - x + dt*L*x */
     /* Lx = L * x */
     hydro_sparse_csr_mv(L, x, Ap);
-    for (hydro_int i = 0; i < N; i++) {
+    for (hydro_int i = 0; i < N; i++)
+    {
         r[i] = b[i] - x[i] + dt * Ap[i];
     }
 
@@ -155,13 +182,17 @@ int hydro_parabolic_cg_solve(
     if (bnorm < 1e-30) tol_abs = tol;
 
     double rnorm = norm2(r, N);
-    if (rnorm <= tol_abs) {
-        if (stats) {
+    if (rnorm <= tol_abs)
+    {
+        if (stats)
+        {
             stats->iterations = 0;
             stats->residual = rnorm;
             stats->converged = 1;
         }
-        free(r); free(p); free(Ap);
+        free(r);
+        free(p);
+        free(Ap);
         return 0;
     }
 
@@ -169,10 +200,12 @@ int hydro_parabolic_cg_solve(
     double rsq_old = dot(r, r, N);
 
     hydro_int iter;
-    for (iter = 0; iter < max_iter; iter++) {
+    for (iter = 0; iter < max_iter; iter++)
+    {
         /* Ap = (I - dt*L) * p = p - dt * L*p */
         hydro_sparse_csr_mv(L, p, Ap);
-        for (hydro_int i = 0; i < N; i++) {
+        for (hydro_int i = 0; i < N; i++)
+        {
             Ap[i] = p[i] - dt * Ap[i];
         }
 
@@ -186,7 +219,8 @@ int hydro_parabolic_cg_solve(
 
         double rsq_new = dot(r, r, N);
         rnorm = sqrt(rsq_new);
-        if (rnorm <= tol_abs) {
+        if (rnorm <= tol_abs)
+        {
             iter++;
             break;
         }
@@ -197,12 +231,15 @@ int hydro_parabolic_cg_solve(
         rsq_old = rsq_new;
     }
 
-    if (stats) {
+    if (stats)
+    {
         stats->iterations = iter;
         stats->residual = rnorm;
         stats->converged = (rnorm <= tol_abs) ? 1 : 0;
     }
 
-    free(r); free(p); free(Ap);
+    free(r);
+    free(p);
+    free(Ap);
     return 0;
 }

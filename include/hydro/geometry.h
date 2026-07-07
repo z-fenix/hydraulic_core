@@ -5,6 +5,7 @@
 
 #ifdef __cplusplus
 extern "C" {
+
 #endif
 
 /* =========================================================================
@@ -112,13 +113,14 @@ hydro_int hydro_polygon_triangle_overlap(
  * AABB (Axis-Aligned Bounding Box)
  * ========================================================================= */
 
-typedef struct {
+typedef struct
+{
     double xmin, xmax, ymin, ymax;
 } hydro_aabb_t;
 
 void hydro_aabb_init(hydro_aabb_t* box);
 void hydro_aabb_extend(hydro_aabb_t* box, double x, double y);
-int  hydro_aabb_contains(const hydro_aabb_t* box, double x, double y);
+int hydro_aabb_contains(const hydro_aabb_t* box, double x, double y);
 
 #ifdef __cplusplus
 }

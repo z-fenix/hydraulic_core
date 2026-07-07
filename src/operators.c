@@ -26,22 +26,28 @@
  * Quicksort (needed by matrix builder, sorts column indices per row)
  * ========================================================================= */
 
-static void swap_int(hydro_int* a, hydro_int* b) {
-    hydro_int t = *a; *a = *b; *b = t;
+static void swap_int(hydro_int* a, hydro_int* b)
+{
+    hydro_int t = *a;
+    *a = *b;
+    *b = t;
 }
 
 static hydro_int choose_pivot(hydro_int i, hydro_int j) { return (i + j) / 2; }
 
-static void quicksort(hydro_int* list, hydro_int m, hydro_int n) {
+static void quicksort(hydro_int* list, hydro_int m, hydro_int n)
+{
     if (m >= n) return;
     hydro_int key, i = m, j = n;
     hydro_int k = choose_pivot(m, n);
     swap_int(&list[m], &list[k]);
     key = list[m];
-    i = m + 1; j = n;
-    while (i <= j) {
+    i = m + 1;
+    j = n;
+    while (i <= j)
+    {
         while (i <= n && list[i] <= key) i++;
-        while (j >= m && list[j] > key)  j--;
+        while (j >= m && list[j] > key) j--;
         if (i < j) swap_int(&list[i], &list[j]);
     }
     swap_int(&list[m], &list[j]);
@@ -53,15 +59,16 @@ static void quicksort(hydro_int* list, hydro_int m, hydro_int n) {
  * Manning Friction (Explicit)
  * ========================================================================= */
 
-void hydro_manning_friction_explicit(hydro_domain_t* domain) {
+void hydro_manning_friction_explicit(hydro_domain_t* domain)
+{
     hydro_int N = domain->number_of_elements;
     double g = domain->g, eps = domain->minimum_allowed_height;
     double dt = domain->timestep;
     double* stage_c = domain->stage_centroid_values;
-    double* bed_c   = domain->bed_centroid_values;
-    double* xmom_c  = domain->xmom_centroid_values;
-    double* ymom_c  = domain->ymom_centroid_values;
-    double* fric_c  = domain->friction_centroid_values;
+    double* bed_c = domain->bed_centroid_values;
+    double* xmom_c = domain->xmom_centroid_values;
+    double* ymom_c = domain->ymom_centroid_values;
+    double* fric_c = domain->friction_centroid_values;
     if (!xmom_c || !fric_c) return;
 
     #ifdef _OPENMP
@@ -73,10 +80,11 @@ void hydro_manning_friction_explicit(hydro_domain_t* domain) {
         double eta = fric_c[k];
         if (eta < 1e-15) continue;
         double uh = xmom_c[k], vh = ymom_c[k];
-        double speed = sqrt(uh*uh + vh*vh) / h;
-        double gamma = -g * eta*eta * speed / pow(h, 4.0/3.0);
+        double speed = sqrt(uh * uh + vh * vh) / h;
+        double gamma = -g * eta * eta * speed / pow(h, 4.0 / 3.0);
         double eg = exp(gamma * dt);
-        xmom_c[k] *= eg;  ymom_c[k] *= eg;
+        xmom_c[k] *= eg;
+        ymom_c[k] *= eg;
     }
 }
 
@@ -85,11 +93,13 @@ void hydro_manning_friction_explicit(hydro_domain_t* domain) {
  * ========================================================================= */
 
 void hydro_bed_shear_erosion_apply(hydro_domain_t* domain,
-    double threshold, double base, const hydro_int* indices, hydro_int num) {
+                                   double threshold, double base, const hydro_int* indices, hydro_int num)
+{
     double dt = domain->timestep;
     double *sc = domain->stage_centroid_values, *bc = domain->bed_centroid_values;
     double *xc = domain->xmom_centroid_values, *yc = domain->ymom_centroid_values;
-    if (!indices) {
+    if (!indices)
+    {
         hydro_int N = domain->number_of_elements;
         #ifdef _OPENMP
         #pragma omp parallel for schedule(static)
@@ -100,7 +110,8 @@ void hydro_bed_shear_erosion_apply(hydro_domain_t* domain,
             double de = m * dt, ne = bc[k] - de;
             if (ne < base) ne = base;
             double h = sc[k] - bc[k];
-            bc[k] = ne; sc[k] = ne + h;
+            bc[k] = ne;
+            sc[k] = ne + h;
         }
     } else {
         #ifdef _OPENMP
@@ -108,12 +119,13 @@ void hydro_bed_shear_erosion_apply(hydro_domain_t* domain,
         #endif
         for (hydro_int j = 0; j < num; j++) {
             hydro_int k = indices[j];
-            double m = sqrt(xc[k]*xc[k] + yc[k]*yc[k]);
+            double m = sqrt(xc[k] * xc[k] + yc[k] * yc[k]);
             if (m <= threshold) continue;
             double de = m * dt, ne = bc[k] - de;
             if (ne < base) ne = base;
             double h = sc[k] - bc[k];
-            bc[k] = ne; sc[k] = ne + h;
+            bc[k] = ne;
+            sc[k] = ne + h;
         }
     }
 }
@@ -123,31 +135,47 @@ void hydro_bed_shear_erosion_apply(hydro_domain_t* domain,
  * ========================================================================= */
 
 void hydro_set_stage(hydro_domain_t* d, const double* vals,
-                      const hydro_int* ind, hydro_int num) {
+                     const hydro_int* ind, hydro_int num)
+{
     double *sc = d->stage_centroid_values, *bc = d->bed_centroid_values;
-    if (!ind) {
-        for (hydro_int k = 0; k < d->number_of_elements; k++) {
-            sc[k] = vals[k]; if (sc[k] < bc[k]) sc[k] = bc[k];
+    if (!ind)
+    {
+        for (hydro_int k = 0; k < d->number_of_elements; k++)
+        {
+            sc[k] = vals[k];
+            if (sc[k] < bc[k]) sc[k] = bc[k];
         }
-    } else {
-        for (hydro_int j = 0; j < num; j++) {
+    }
+    else
+    {
+        for (hydro_int j = 0; j < num; j++)
+        {
             hydro_int k = ind[j];
-            sc[k] = vals[j]; if (sc[k] < bc[k]) sc[k] = bc[k];
+            sc[k] = vals[j];
+            if (sc[k] < bc[k]) sc[k] = bc[k];
         }
     }
 }
 
 void hydro_set_elevation(hydro_domain_t* d, const double* vals,
-                          const hydro_int* ind, hydro_int num) {
+                         const hydro_int* ind, hydro_int num)
+{
     double *sc = d->stage_centroid_values, *bc = d->bed_centroid_values;
-    if (!ind) {
-        for (hydro_int k = 0; k < d->number_of_elements; k++) {
-            bc[k] = vals[k]; if (sc[k] < bc[k]) sc[k] = bc[k];
+    if (!ind)
+    {
+        for (hydro_int k = 0; k < d->number_of_elements; k++)
+        {
+            bc[k] = vals[k];
+            if (sc[k] < bc[k]) sc[k] = bc[k];
         }
-    } else {
-        for (hydro_int j = 0; j < num; j++) {
+    }
+    else
+    {
+        for (hydro_int j = 0; j < num; j++)
+        {
             hydro_int k = ind[j];
-            bc[k] = vals[j]; if (sc[k] < bc[k]) sc[k] = bc[k];
+            bc[k] = vals[j];
+            if (sc[k] < bc[k]) sc[k] = bc[k];
         }
     }
 }
@@ -161,14 +189,17 @@ void hydro_set_elevation(hydro_domain_t* d, const double* vals,
  *                  |centroid_i - edge_midpoint| for boundary edges.
  * ========================================================================= */
 
-int hydro_kinematic_viscosity_build_geo_structure(hydro_domain_t* d) {
+int hydro_kinematic_viscosity_build_geo_structure(hydro_domain_t* d)
+{
     hydro_int N = d->number_of_elements;
     hydro_int n_edges = d->number_of_edges;
 
-    if (!d->geo_structure_indices) {
+    if (!d->geo_structure_indices)
+    {
         d->geo_structure_indices = (hydro_int*)calloc((size_t)n_edges, sizeof(hydro_int));
     }
-    if (!d->geo_structure_values) {
+    if (!d->geo_structure_values)
+    {
         d->geo_structure_values = (double*)calloc((size_t)n_edges, sizeof(double));
     }
     if (!d->geo_structure_indices || !d->geo_structure_values) return -1;
@@ -178,29 +209,34 @@ int hydro_kinematic_viscosity_build_geo_structure(hydro_domain_t* d) {
     double* edge_coords = d->edge_coordinates;
     hydro_int* neighbours = d->neighbours;
 
-    for (hydro_int i = 0; i < N; i++) {
-        double this_x = cx[2*i], this_y = cx[2*i + 1];
+    for (hydro_int i = 0; i < N; i++)
+    {
+        double this_x = cx[2 * i], this_y = cx[2 * i + 1];
 
-        for (hydro_int edge = 0; edge < 3; edge++) {
-            hydro_int ei = 3*i + edge;
+        for (hydro_int edge = 0; edge < 3; edge++)
+        {
+            hydro_int ei = 3 * i + edge;
             hydro_int j = neighbours[ei];
 
             double other_x, other_y;
-            if (j < 0) {
+            if (j < 0)
+            {
                 /* Boundary: use edge midpoint */
                 hydro_int bnd_idx = -j - 1;
                 d->geo_structure_indices[ei] = N + bnd_idx;
-                other_x = edge_coords[2*ei];
-                other_y = edge_coords[2*ei + 1];
-            } else {
+                other_x = edge_coords[2 * ei];
+                other_y = edge_coords[2 * ei + 1];
+            }
+            else
+            {
                 d->geo_structure_indices[ei] = j;
-                other_x = cx[2*j];
-                other_y = cx[2*j + 1];
+                other_x = cx[2 * j];
+                other_y = cx[2 * j + 1];
             }
 
             double elen = edgelen[ei];
             double dx = this_x - other_x, dy = this_y - other_y;
-            double dist = sqrt(dx*dx + dy*dy);
+            double dist = sqrt(dx * dx + dy * dy);
             d->geo_structure_values[ei] = (dist > 1e-30) ? -elen / dist : 0.0;
         }
     }
@@ -215,13 +251,15 @@ int hydro_kinematic_viscosity_build_geo_structure(hydro_domain_t* d) {
  * ========================================================================= */
 
 hydro_sparse_csr_t* hydro_kinematic_viscosity_build_matrix(
-    hydro_domain_t* d, const double* h, const double* h_b) {
+    hydro_domain_t* d, const double* h, const double* h_b)
+{
     hydro_int n = d->number_of_elements;
     hydro_int blen = d->boundary_length;
     hydro_int tot_len = n + blen;
 
     /* Build geo structure if not already built */
-    if (!d->geo_structure_indices || !d->geo_structure_values) {
+    if (!d->geo_structure_indices || !d->geo_structure_values)
+    {
         if (hydro_kinematic_viscosity_build_geo_structure(d) != 0) return NULL;
     }
 
@@ -233,13 +271,15 @@ hydro_sparse_csr_t* hydro_kinematic_viscosity_build_matrix(
     hydro_int* geo_idx = d->geo_structure_indices;
     double* geo_val = d->geo_structure_values;
 
-    for (hydro_int i = 0; i < n; i++) {
+    for (hydro_int i = 0; i < n; i++)
+    {
         hydro_int j[4];
         double v[3], v_i = 0.0;
         j[3] = i;
 
-        for (int edge = 0; edge < 3; edge++) {
-            hydro_int ei = 3*i + edge;
+        for (int edge = 0; edge < 3; edge++)
+        {
+            hydro_int ei = 3 * i + edge;
             j[edge] = geo_idx[ei];
 
             double h_j;
@@ -248,12 +288,16 @@ hydro_sparse_csr_t* hydro_kinematic_viscosity_build_matrix(
 
             /* Symmetric: v_edge = -0.5*(h_i + h_j) * geo_val */
             v[edge] = -0.5 * (h[i] + h_j) * geo_val[ei];
-            v_i    +=  0.5 * (h[i] + h_j) * geo_val[ei];
+            v_i += 0.5 * (h[i] + h_j) * geo_val[ei];
         }
 
         /* Dry cell: zero out */
-        if (h[i] <= 0.0) {
-            v_i = 0.0; v[0] = 0.0; v[1] = 0.0; v[2] = 0.0;
+        if (h[i] <= 0.0)
+        {
+            v_i = 0.0;
+            v[0] = 0.0;
+            v[1] = 0.0;
+            v[2] = 0.0;
         }
 
         /* Sort column indices to keep CSR in order */
@@ -261,13 +305,14 @@ hydro_sparse_csr_t* hydro_kinematic_viscosity_build_matrix(
         for (int k = 0; k < 4; k++) sorted[k] = j[k];
         quicksort(sorted, 0, 3);
 
-        for (int k = 0; k < 4; k++) {
+        for (int k = 0; k < 4; k++)
+        {
             hydro_int idx = sorted[k];
-            if (idx == i)      data[4*i + k] = v_i;
-            else if (idx == j[0]) data[4*i + k] = v[0];
-            else if (idx == j[1]) data[4*i + k] = v[1];
-            else                  data[4*i + k] = v[2];
-            colind[4*i + k] = idx;
+            if (idx == i) data[4 * i + k] = v_i;
+            else if (idx == j[0]) data[4 * i + k] = v[0];
+            else if (idx == j[1]) data[4 * i + k] = v[1];
+            else data[4 * i + k] = v[2];
+            colind[4 * i + k] = idx;
         }
     }
 
@@ -276,7 +321,8 @@ hydro_sparse_csr_t* hydro_kinematic_viscosity_build_matrix(
 
 int hydro_kinematic_viscosity_update_matrix(
     hydro_domain_t* d, const double* h, const double* h_b,
-    hydro_sparse_csr_t* L) {
+    hydro_sparse_csr_t* L)
+{
     hydro_int n = d->number_of_elements;
 
     if (!d->geo_structure_indices || !d->geo_structure_values) return -1;
@@ -287,13 +333,15 @@ int hydro_kinematic_viscosity_update_matrix(
     hydro_int* geo_idx = d->geo_structure_indices;
     double* geo_val = d->geo_structure_values;
 
-    for (hydro_int i = 0; i < n; i++) {
+    for (hydro_int i = 0; i < n; i++)
+    {
         hydro_int j[4];
         double v[3], v_i = 0.0;
         j[3] = i;
 
-        for (int edge = 0; edge < 3; edge++) {
-            hydro_int ei = 3*i + edge;
+        for (int edge = 0; edge < 3; edge++)
+        {
+            hydro_int ei = 3 * i + edge;
             j[edge] = geo_idx[ei];
 
             double h_j;
@@ -301,23 +349,28 @@ int hydro_kinematic_viscosity_update_matrix(
             else h_j = h_b[j[edge] - n];
 
             v[edge] = -0.5 * (h[i] + h_j) * geo_val[ei];
-            v_i    +=  0.5 * (h[i] + h_j) * geo_val[ei];
+            v_i += 0.5 * (h[i] + h_j) * geo_val[ei];
         }
 
-        if (h[i] <= 0.0) {
-            v_i = 0.0; v[0] = 0.0; v[1] = 0.0; v[2] = 0.0;
+        if (h[i] <= 0.0)
+        {
+            v_i = 0.0;
+            v[0] = 0.0;
+            v[1] = 0.0;
+            v[2] = 0.0;
         }
 
         hydro_int sorted[4];
         for (int k = 0; k < 4; k++) sorted[k] = j[k];
         quicksort(sorted, 0, 3);
 
-        for (int k = 0; k < 4; k++) {
+        for (int k = 0; k < 4; k++)
+        {
             hydro_int idx = sorted[k];
-            if (idx == i)      data[4*i + k] = v_i;
-            else if (idx == j[0]) data[4*i + k] = v[0];
-            else if (idx == j[1]) data[4*i + k] = v[1];
-            else                  data[4*i + k] = v[2];
+            if (idx == i) data[4 * i + k] = v_i;
+            else if (idx == j[0]) data[4 * i + k] = v[0];
+            else if (idx == j[1]) data[4 * i + k] = v[1];
+            else data[4 * i + k] = v[2];
         }
     }
     return 0;
@@ -330,7 +383,8 @@ int hydro_kinematic_viscosity_update_matrix(
  * ========================================================================= */
 
 int hydro_kinematic_viscosity_apply(
-    hydro_domain_t* domain, const double* diffusivity, double dt) {
+    hydro_domain_t* domain, const double* diffusivity, double dt)
+{
     hydro_int n = domain->number_of_elements;
     if (n < 1 || !diffusivity) return -1;
     if (dt <= 0) return 0;
@@ -345,12 +399,14 @@ int hydro_kinematic_viscosity_apply(
     /* Boundary diffusivity: use the domain height boundary values */
     hydro_int bl = domain->boundary_length;
     double* h_bnd = NULL;
-    if (bl > 0) {
+    if (bl > 0)
+    {
         h_bnd = (double*)calloc((size_t)bl, sizeof(double));
         if (!h_bnd) return -1;
         /* Extrapolate first order to populate boundary values */
         hydro_quantity_extrapolate_first_order(domain);
-        for (hydro_int bi = 0; bi < bl; bi++) {
+        for (hydro_int bi = 0; bi < bl; bi++)
+        {
             h_bnd[bi] = domain->height_boundary_values[bi];
         }
     }
@@ -365,19 +421,27 @@ int hydro_kinematic_viscosity_apply(
     /* Build matrix fresh (for simplicity; caching could be added) */
     L = hydro_kinematic_viscosity_build_matrix(domain, diff, diff_bnd ? diff_bnd : diff);
 
-    if (!L) { free(h_bnd); return -1; }
+    if (!L)
+    {
+        free(h_bnd);
+        return -1;
+    }
 
     /* Allocate work arrays for CG solve */
     double* u_copy = (double*)calloc((size_t)n, sizeof(double));
     double* v_copy = (double*)calloc((size_t)n, sizeof(double));
-    if (!u_copy || !v_copy) {
+    if (!u_copy || !v_copy)
+    {
         hydro_sparse_csr_destroy(L);
-        free(h_bnd); free(u_copy); free(v_copy);
+        free(h_bnd);
+        free(u_copy);
+        free(v_copy);
         return -1;
     }
 
     /* Copy current velocity */
-    for (hydro_int i = 0; i < n; i++) {
+    for (hydro_int i = 0; i < n; i++)
+    {
         u_copy[i] = u[i];
         v_copy[i] = v[i];
     }
@@ -395,7 +459,8 @@ int hydro_kinematic_viscosity_apply(
     int ret_v = hydro_parabolic_cg_solve(L, dt, v_copy, v, n, max_iter, tol, &stats_v);
 
     /* Update x/y momentum from velocity */
-    for (hydro_int i = 0; i < n; i++) {
+    for (hydro_int i = 0; i < n; i++)
+    {
         double hi = h[i];
         if (hi < domain->minimum_allowed_height) hi = domain->minimum_allowed_height;
         domain->xmom_centroid_values[i] = u[i] * hi;

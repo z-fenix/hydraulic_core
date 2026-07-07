@@ -27,17 +27,19 @@
  * ========================================================================= */
 
 void hydro_gradient_triangle(double x0, double y0,
-                              double x1, double y1,
-                              double x2, double y2,
-                              double q0, double q1, double q2,
-                              double* dqdx, double* dqdy) {
-    double det = (y2 - y0)*(x1 - x0) - (y1 - y0)*(x2 - x0);
-    if (fabs(det) < 1e-30) {
+                             double x1, double y1,
+                             double x2, double y2,
+                             double q0, double q1, double q2,
+                             double* dqdx, double* dqdy)
+{
+    double det = (y2 - y0) * (x1 - x0) - (y1 - y0) * (x2 - x0);
+    if (fabs(det) < 1e-30)
+    {
         *dqdx = *dqdy = 0.0;
         return;
     }
-    *dqdx = ((y2 - y0)*(q1 - q0) - (y1 - y0)*(q2 - q0)) / det;
-    *dqdy = ((x1 - x0)*(q2 - q0) - (x2 - x0)*(q1 - q0)) / det;
+    *dqdx = ((y2 - y0) * (q1 - q0) - (y1 - y0) * (q2 - q0)) / det;
+    *dqdy = ((x1 - x0) * (q2 - q0) - (x2 - x0) * (q1 - q0)) / det;
 }
 
 /* =========================================================================
@@ -45,9 +47,10 @@ void hydro_gradient_triangle(double x0, double y0,
  * ========================================================================= */
 
 void hydro_wind_stress_apply(hydro_domain_t* domain,
-                              const double* speed, double speed_scalar,
-                              const double* direction, double direction_scalar,
-                              hydro_int N, double time) {
+                             const double* speed, double speed_scalar,
+                             const double* direction, double direction_scalar,
+                             hydro_int N, double time)
+{
     (void)time;
     if (N < 1) return;
 
@@ -55,10 +58,11 @@ void hydro_wind_stress_apply(hydro_domain_t* domain,
     double* xmom_up = domain->xmom_explicit_update;
     double* ymom_up = domain->ymom_explicit_update;
 
-    #ifdef _OPENMP
-    #pragma omp parallel for schedule(static)
-    #endif
-    for (hydro_int k = 0; k < N; k++) {
+#ifdef _OPENMP
+#pragma omp parallel for schedule(static)
+#endif
+    for (hydro_int k = 0; k < N; k++)
+    {
         double s = speed ? speed[k] : speed_scalar;
         double phi_deg = direction ? direction[k] : direction_scalar;
 
@@ -70,7 +74,7 @@ void hydro_wind_stress_apply(hydro_domain_t* domain,
         double v = s * sin(phi);
 
         /* Wind stress magnitude */
-        double S = const_wind * sqrt(u*u + v*v);
+        double S = const_wind * sqrt(u * u + v * v);
 
         /* Add to momentum explicit_update */
         xmom_up[k] += S * u;
@@ -83,8 +87,9 @@ void hydro_wind_stress_apply(hydro_domain_t* domain,
  * ========================================================================= */
 
 void hydro_barometric_pressure_apply(hydro_domain_t* domain,
-                                      const double* pressure,
-                                      hydro_int N_nodes, double time) {
+                                     const double* pressure,
+                                     hydro_int N_nodes, double time)
+{
     (void)time;
     hydro_int N = domain->number_of_elements;
     if (N < 1 || !pressure) return;
@@ -92,16 +97,17 @@ void hydro_barometric_pressure_apply(hydro_domain_t* domain,
     double* xmom_up = domain->xmom_explicit_update;
     double* ymom_up = domain->ymom_explicit_update;
     double* stage_c = domain->stage_centroid_values;
-    double* bed_c   = domain->bed_centroid_values;
+    double* bed_c = domain->bed_centroid_values;
     hydro_int* tri = domain->triangles;
     double* vc = domain->vertex_coordinates;
 
-    #ifdef _OPENMP
-    #pragma omp parallel for schedule(static)
-    #endif
-    for (hydro_int k = 0; k < N; k++) {
-        hydro_int k3 = 3*k, k6 = 6*k;
-        hydro_int v0 = tri[k3], v1 = tri[k3+1], v2 = tri[k3+2];
+#ifdef _OPENMP
+#pragma omp parallel for schedule(static)
+#endif
+    for (hydro_int k = 0; k < N; k++)
+    {
+        hydro_int k3 = 3 * k, k6 = 6 * k;
+        hydro_int v0 = tri[k3], v1 = tri[k3 + 1], v2 = tri[k3 + 2];
 
         /* Pressure at three vertices */
         double p0 = (v0 < N_nodes) ? pressure[v0] : 0.0;
@@ -109,9 +115,9 @@ void hydro_barometric_pressure_apply(hydro_domain_t* domain,
         double p2 = (v2 < N_nodes) ? pressure[v2] : 0.0;
 
         /* Triangle vertex coordinates */
-        double x0 = vc[k6],   y0 = vc[k6+1];
-        double x1 = vc[k6+2], y1 = vc[k6+3];
-        double x2 = vc[k6+4], y2 = vc[k6+5];
+        double x0 = vc[k6], y0 = vc[k6 + 1];
+        double x1 = vc[k6 + 2], y1 = vc[k6 + 3];
+        double x2 = vc[k6 + 4], y2 = vc[k6 + 5];
 
         /* Pressure gradient on triangle */
         double px, py;
@@ -134,29 +140,37 @@ void hydro_barometric_pressure_apply(hydro_domain_t* domain,
  * Rainfall / Rate Operator
  * ========================================================================= */
 
-void hydro_rainfall_apply(hydro_domain_t* domain, double rate) {
+void hydro_rainfall_apply(hydro_domain_t* domain, double rate)
+{
     hydro_rate_apply(domain, &rate, NULL, domain->number_of_elements);
 }
 
 void hydro_rate_apply(hydro_domain_t* domain,
-                       const double* rate,
-                       const hydro_int* indices,
-                       hydro_int num_indices) {
+                      const double* rate,
+                      const hydro_int* indices,
+                      hydro_int num_indices)
+{
     if (!rate || num_indices < 1) return;
 
     double dt = domain->timestep;
     double eps = domain->minimum_allowed_height;
     double* stage_c = domain->stage_centroid_values;
-    double* bed_c   = domain->bed_centroid_values;
-    double* xmom_c  = domain->xmom_centroid_values;
-    double* ymom_c  = domain->ymom_centroid_values;
+    double* bed_c = domain->bed_centroid_values;
+    double* xmom_c = domain->xmom_centroid_values;
+    double* ymom_c = domain->ymom_centroid_values;
 
-    if (indices == NULL) {
+    if (indices == NULL)
+    {
         /* Apply to all triangles */
         hydro_int N = domain->number_of_elements;
         int all_positive = 1;
-        for (hydro_int i = 0; i < N; i++) {
-            if (rate[i] < 0.0) { all_positive = 0; break; }
+        for (hydro_int i = 0; i < N; i++)
+        {
+            if (rate[i] < 0.0)
+            {
+                all_positive = 0;
+                break;
+            }
         }
 
         if (all_positive) {
@@ -175,9 +189,12 @@ void hydro_rate_apply(hydro_domain_t* domain,
                 double h = stage_c[i] - bed_c[i];
                 if (h < eps) h = eps;
 
-                if (local_rate >= 0.0) {
+                if (local_rate >= 0.0)
+                {
                     stage_c[i] += local_rate;
-                } else {
+                }
+                else
+                {
                     /* Don't drain below bed */
                     if (local_rate < -h) local_rate = -h;
                     double factor = (local_rate + h) / (h + 1e-10);
@@ -187,7 +204,9 @@ void hydro_rate_apply(hydro_domain_t* domain,
                 }
             }
         }
-    } else {
+    }
+    else
+    {
         /* Apply to specific indices only */
         #ifdef _OPENMP
         #pragma omp parallel for schedule(static)
@@ -198,9 +217,12 @@ void hydro_rate_apply(hydro_domain_t* domain,
             double h = stage_c[i] - bed_c[i];
             if (h < eps) h = eps;
 
-            if (local_rate >= 0.0) {
+            if (local_rate >= 0.0)
+            {
                 stage_c[i] += local_rate;
-            } else {
+            }
+            else
+            {
                 if (local_rate < -h) local_rate = -h;
                 double factor = (local_rate + h) / (h + 1e-10);
                 stage_c[i] += local_rate;
