@@ -292,7 +292,7 @@ boundary_edges : ndarray (B,) int64, optional
         /* Boundaries */
         .def("set_boundary", &Domain::set_boundary,
              py::arg("tag"), py::arg("bc_type"),
-             py::arg("depth") = 0.0,
+             py::arg("stage") = 0.0,
              py::arg("discharge") = 0.0)
         .def("set_time_series_boundary", &Domain::set_time_series_boundary,
              py::arg("tag"), py::arg("times"), py::arg("q_values"),
