@@ -222,8 +222,9 @@ void hydro_boundary_update_time_series(
     double stage = q_to_stage(Q, mean_bed, 0.03, total_width,
                               S, domain->g, ts->default_stage);
 
-    /* Set boundary values — these will be used by hydro_boundary_update */
-    domain->boundary_stage_tag[boundary_tag] = stage;
+    /* Store depth (relative to mean bed) in boundary_stage_tag;
+     * the dispatch switch adds bed per-edge to get absolute stage. */
+    domain->boundary_stage_tag[boundary_tag] = stage - mean_bed;
     /* Zero momentum — the flux computation will handle the inflow */
     domain->boundary_xmom_tag[boundary_tag] = 0.0;
     domain->boundary_ymom_tag[boundary_tag] = 0.0;
@@ -444,28 +445,24 @@ void hydro_boundary_update(hydro_domain_t* domain) {
             break;
 
         case HYDRO_BC_DIRICHLET:
-            /* Fixed stage, zero momentum */
+            /* Fixed depth, zero momentum */
             {
-                double stage_ext = domain->boundary_stage_tag[tag];
-                domain->stage_boundary_values[bi]  = stage_ext;
+                double depth = domain->boundary_stage_tag[tag];
+                domain->stage_boundary_values[bi]  = depth + domain->bed_edge_values[k3i];
                 domain->bed_boundary_values[bi]    = domain->bed_edge_values[k3i];
-                double h = stage_ext - domain->bed_boundary_values[bi];
-                if (h < 0) h = 0;
-                domain->height_boundary_values[bi] = h;
+                domain->height_boundary_values[bi] = depth;
                 domain->xmom_boundary_values[bi]   = 0.0;
                 domain->ymom_boundary_values[bi]   = 0.0;
             }
             break;
 
         case HYDRO_BC_TRANSMISSIVE:
-            /* Set stage from tag, copy interior momentum */
+            /* Set depth from tag, copy interior momentum */
             {
-                double stage_ext = domain->boundary_stage_tag[tag];
-                domain->stage_boundary_values[bi]  = stage_ext;
+                double depth = domain->boundary_stage_tag[tag];
+                domain->stage_boundary_values[bi]  = depth + domain->bed_edge_values[k3i];
                 domain->bed_boundary_values[bi]    = domain->bed_edge_values[k3i];
-                double h = stage_ext - domain->bed_boundary_values[bi];
-                if (h < 0) h = 0;
-                domain->height_boundary_values[bi] = h;
+                domain->height_boundary_values[bi] = depth;
 
                 /* Transmissive momentum: keep normal component, zero tangential */
                 double qx = domain->xmom_edge_values[k3i];
@@ -477,29 +474,25 @@ void hydro_boundary_update(hydro_domain_t* domain) {
             break;
 
         case HYDRO_BC_TIME:
-            /* Time-varying stage (updated externally), zero momentum */
+            /* Time-varying depth (updated externally), zero momentum */
             {
-                double stage_ext = domain->boundary_stage_tag[tag];
-                domain->stage_boundary_values[bi]  = stage_ext;
+                double depth = domain->boundary_stage_tag[tag];
+                domain->stage_boundary_values[bi]  = depth + domain->bed_edge_values[k3i];
                 domain->bed_boundary_values[bi]    = domain->bed_edge_values[k3i];
-                double h = stage_ext - domain->bed_boundary_values[bi];
-                if (h < 0) h = 0;
-                domain->height_boundary_values[bi] = h;
+                domain->height_boundary_values[bi] = depth;
                 domain->xmom_boundary_values[bi]   = 0.0;
                 domain->ymom_boundary_values[bi]   = 0.0;
             }
             break;
 
         case HYDRO_BC_DIRICHLET_DISCHARGE:
-            /* Fixed stage + inward normal discharge */
+            /* Fixed depth + inward normal discharge */
             {
-                double stage_ext = domain->boundary_stage_tag[tag];
+                double depth = domain->boundary_stage_tag[tag];
                 double wh0       = domain->boundary_xmom_tag[tag];
-                domain->stage_boundary_values[bi]  = stage_ext;
+                domain->stage_boundary_values[bi]  = depth + domain->bed_edge_values[k3i];
                 domain->bed_boundary_values[bi]    = domain->bed_edge_values[k3i];
-                double h = stage_ext - domain->bed_boundary_values[bi];
-                if (h < 0) h = 0;
-                domain->height_boundary_values[bi] = h;
+                domain->height_boundary_values[bi] = depth;
                 domain->xmom_boundary_values[bi]   = -wh0 * nx;
                 domain->ymom_boundary_values[bi]   = -wh0 * ny;
             }
@@ -515,15 +508,13 @@ void hydro_boundary_update(hydro_domain_t* domain) {
             break;
 
         case HYDRO_BC_TIME_SERIES:
-            /* Time-series Q(t) — stage/momentum set by hydro_boundary_update_time_series()
+            /* Time-series Q(t) — depth set by hydro_boundary_update_time_series()
              * before this call.  Fall through to DIRICHLET logic using boundary_stage_tag. */
             {
-                double stage_ext = domain->boundary_stage_tag[tag];
-                domain->stage_boundary_values[bi]  = stage_ext;
+                double depth = domain->boundary_stage_tag[tag];
+                domain->stage_boundary_values[bi]  = depth + domain->bed_edge_values[k3i];
                 domain->bed_boundary_values[bi]    = domain->bed_edge_values[k3i];
-                double h = stage_ext - domain->bed_boundary_values[bi];
-                if (h < 0) h = 0;
-                domain->height_boundary_values[bi] = h;
+                domain->height_boundary_values[bi] = depth;
                 domain->xmom_boundary_values[bi]   = 0.0;
                 domain->ymom_boundary_values[bi]   = 0.0;
             }
