@@ -131,9 +131,9 @@ public:
 
     /* --- Boundary conditions --- */
     void set_boundary(int tag, int bc_type,
-                      double depth = 0.0, double discharge = 0.0) {
+                      double stage = 0.0, double discharge = 0.0) {
         hydro_bc_params_t params;
-        params.depth = depth;
+        params.stage = stage;
         params.wh0 = discharge;
         hydro_domain_set_boundary(handle_, (hydro_int)tag,
                                    (hydro_bc_type_t)bc_type, &params);
