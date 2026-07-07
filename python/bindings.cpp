@@ -131,9 +131,9 @@ public:
 
     /* --- Boundary conditions --- */
     void set_boundary(int tag, int bc_type,
-                      double stage = 0.0, double discharge = 0.0) {
+                      double depth = 0.0, double discharge = 0.0) {
         hydro_bc_params_t params;
-        params.stage = stage;
+        params.depth = depth;
         params.wh0 = discharge;
         hydro_domain_set_boundary(handle_, (hydro_int)tag,
                                    (hydro_bc_type_t)bc_type, &params);
@@ -292,7 +292,7 @@ boundary_edges : ndarray (B,) int64, optional
         /* Boundaries */
         .def("set_boundary", &Domain::set_boundary,
              py::arg("tag"), py::arg("bc_type"),
-             py::arg("stage") = 0.0,
+             py::arg("depth") = 0.0,
              py::arg("discharge") = 0.0)
         .def("set_time_series_boundary", &Domain::set_time_series_boundary,
              py::arg("tag"), py::arg("times"), py::arg("q_values"),

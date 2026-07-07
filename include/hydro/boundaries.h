@@ -23,7 +23,7 @@ typedef enum {
 
 /* Parameters for boundary conditions */
 typedef struct {
-    double stage;    /* water depth (m), used by Dirichlet/Time BCs */
+    double depth;    /* water depth (m), used by Dirichlet/Time BCs */
     double wh0;      /* discharge in m^2/s, used by Dirichlet_discharge */
 } hydro_bc_params_t;
 
@@ -85,7 +85,7 @@ void hydro_boundary_set_time_series(
  * Update stage/momentum boundary values for HYDRO_BC_TIME_SERIES
  * at runtime.  Called each timestep — interpolates Q(current_time),
  * derives stage from Q using Manning's equation, and sets
- * boundary_stage_tag / boundary_xmom_tag / boundary_ymom_tag.
+ * boundary_depth_tag / boundary_xmom_tag / boundary_ymom_tag.
  *
  * The effective channel width is auto-derived from the boundary edge
  * geometry (sum of edgelengths for edges with this tag).
@@ -105,14 +105,14 @@ void hydro_boundary_update_time_series(
  *
  * @param domain      The domain
  * @param boundary_tag Tag whose BC to update
- * @param stage       Water depth above bed (m), used by Dirichlet/Time BCs
+ * @param depth       Water depth above bed (m), used by Dirichlet/Time BCs
  * @param xmom        External x-momentum (for discharge BC, 0 otherwise)
  * @param ymom        External y-momentum (for discharge BC, 0 otherwise)
  */
 void hydro_boundary_update_stage_time(
     hydro_domain_t* domain,
     hydro_int       boundary_tag,
-    double          stage,
+    double          depth,
     double          xmom,
     double          ymom);
 

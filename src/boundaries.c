@@ -42,7 +42,7 @@ void hydro_domain_set_boundary(
     domain->boundary_bc_type_tag[boundary_tag] = (hydro_int)bc_type;
 
     if (bc_params) {
-        domain->boundary_stage_tag[boundary_tag] = bc_params->stage;
+        domain->boundary_stage_tag[boundary_tag] = bc_params->depth;
         domain->boundary_xmom_tag[boundary_tag]  = bc_params->wh0;
         domain->boundary_ymom_tag[boundary_tag]  = 0.0;
     } else {
