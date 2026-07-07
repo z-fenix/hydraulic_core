@@ -292,7 +292,7 @@ int hydro_domain_evolve(
         } else {
             /* No SWW output — print progress at yieldstep boundaries anyway */
             if (yieldstep > 0) {
-                double next_yield = (domain->yieldstep_counter) * yieldstep;
+                double next_yield = domain->yieldstep_counter * yieldstep;
                 if (fabs(domain->time - next_yield) < domain->timestep * 0.5
                     || domain->time >= finaltime) {
                     at_yield = 1;

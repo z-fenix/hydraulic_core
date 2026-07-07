@@ -46,7 +46,7 @@ elevation = -cent_x / 10.0  # linear bed slope
 # ---------------------------------------------------------------------------
 domain = Domain(vertices, triangles, btags, bedges)
 domain.set_name('channel_inflow_csv')
-domain.set_output_dir(os.path.join(os.path.dirname(__file__), '..'))
+domain.set_output_dir(os.path.join(os.path.dirname(__file__)))
 
 domain.set_elevation(elevation)
 domain.set_friction(np.full(n_tri, 0.01))
@@ -102,7 +102,7 @@ elapsed = time.time() - t0
 stage = domain.get_stage()
 height = stage - elevation
 
-output_path = os.path.join(os.path.dirname(__file__), '..', 'channel_inflow_csv.sww')
+output_path = os.path.join(os.path.dirname(__file__),  'channel_inflow_csv.sww')
 print(f"\nEvolved in {elapsed:.1f} s")
 print(f"Stage   : [{stage.min():.4f}, {stage.max():.4f}]")
 print(f"Height  : [{height.min():.4f}, {height.max():.4f}]")

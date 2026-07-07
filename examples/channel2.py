@@ -49,7 +49,7 @@ elevation = -cent_x / 10.0
 # ---------------------------------------------------------------------------
 domain = Domain(vertices, triangles, btags, bedges)
 domain.set_name('channel2')
-domain.set_output_dir(os.path.join(os.path.dirname(__file__), '..'))
+domain.set_output_dir(os.path.join(os.path.dirname(__file__)))
 
 domain.set_elevation(elevation)
 domain.set_friction(np.full(n_tri, 0.01))
@@ -72,7 +72,7 @@ domain.set_boundary(4, HYDRO_BC_REFLECTIVE)               # bottom — wall
 # ---------------------------------------------------------------------------
 # Phase 1: Inflow with reflective right wall (water builds up)
 # ---------------------------------------------------------------------------
-output_path = os.path.join(os.path.dirname(__file__), "..", "channel2.sww")
+output_path = os.path.join(os.path.dirname(__file__), "channel2.sww")
 
 t0 = time.time()
 

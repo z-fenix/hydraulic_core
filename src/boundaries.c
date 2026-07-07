@@ -400,7 +400,7 @@ void hydro_boundary_update(hydro_domain_t* domain) {
      * for any tags using HYDRO_BC_TIME_SERIES.  This must happen before
      * the main dispatch switch reads boundary_stage_tag[]. */
     for (int tag = 1; tag < HYDRO_MAX_BOUNDARY_TAGS; tag++) {
-        if (domain->boundary_bc_type_tag[tag] == 7) { /* HYDRO_BC_TIME_SERIES */
+        if (domain->boundary_bc_type_tag[tag] == HYDRO_BC_TIME_SERIES) { /* HYDRO_BC_TIME_SERIES */
             struct hydro_ts_data* ts = &domain->boundary_time_series[tag];
             if (ts->n_points > 0) {
                 hydro_boundary_update_time_series(
