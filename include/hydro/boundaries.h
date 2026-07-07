@@ -25,7 +25,7 @@ typedef enum
 /* Parameters for boundary conditions */
 typedef struct
 {
-    double depth; /* water depth (m), used by Dirichlet/Time BCs */
+    double stage; /* water stage (m), used by Dirichlet/Time BCs */
     double wh0; /* discharge in m^2/s, used by Dirichlet_discharge */
 } hydro_bc_params_t;
 

@@ -79,7 +79,7 @@ domain.set_parameter("timestepping_method", EULER)
 # ---------------------------------------------------------------------------
 # Boundary conditions — start with reflective right wall
 # ---------------------------------------------------------------------------
-domain.set_boundary(1, HYDRO_BC_DIRICHLET, depth=0.4)     # left — inflow
+domain.set_boundary(1, HYDRO_BC_DIRICHLET, stage=0.4)     # left — inflow
 domain.set_boundary(2, HYDRO_BC_REFLECTIVE)               # right — wall (initially)
 domain.set_boundary(3, HYDRO_BC_REFLECTIVE)               # top — wall
 domain.set_boundary(4, HYDRO_BC_REFLECTIVE)               # bottom — wall
@@ -105,7 +105,7 @@ print(f"  Stage near outlet: max={stage_out:.3f}")
 
 # Phase 2: Switch to outflow, continue to finaltime
 print(f"Phase 2: Outflow right wall ({phase1_end} → {finaltime} s)")
-domain.set_boundary(2, HYDRO_BC_DIRICHLET, depth=-5.0)
+domain.set_boundary(2, HYDRO_BC_DIRICHLET, stage=-5.0)
 domain.evolve(finaltime=finaltime, yieldstep=yieldstep)
 
 elapsed = time.time() - t0

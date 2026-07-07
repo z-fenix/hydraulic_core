@@ -59,7 +59,7 @@ domain.set_parameter("timestepping_method", EULER)
 # ---------------------------------------------------------------------------
 # Boundary conditions
 # ---------------------------------------------------------------------------
-domain.set_boundary(1, HYDRO_BC_DIRICHLET, depth=1.4)     # left — inflow
+domain.set_boundary(1, HYDRO_BC_DIRICHLET, stage=1.4)     # left — inflow
 domain.set_boundary(2, HYDRO_BC_REFLECTIVE)               # right — wall
 domain.set_boundary(3, HYDRO_BC_REFLECTIVE)               # top — wall
 domain.set_boundary(4, HYDRO_BC_REFLECTIVE)               # bottom — wall
