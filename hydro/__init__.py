@@ -76,3 +76,4 @@ __version__ = "0.1.0"
 
 # High-level Python wrappers (depend on _core being available)
 from hydro.time_series_boundary import TimeSeriesInflowBoundary
+from hydro.quantity_centroids import QuantityCentroids

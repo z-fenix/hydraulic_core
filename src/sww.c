@@ -540,11 +540,53 @@ int hydro_sww_store_timestep(
     nc_put_vara_double(ncid, sww->time_var_id, time_start, time_count, &time_val);
 
     float* uniq = (float*)malloc((size_t)n_uniq * sizeof(float));
+    float* z_unique = (float*)calloc((size_t)n_uniq, sizeof(float));
+    float* stage_clipped = (float*)malloc((size_t)n_uniq * sizeof(float));
     size_t q_start[2] = {(size_t)ti, 0};
     size_t q_count[2] = {1, (size_t)n_uniq};
 
+    /* Compute bed elevation averaged to unique vertices (once, reused) */
+    if (domain->bed_vertex_values)
+    {
+        avg_to_unique(sww, domain->bed_vertex_values, z_unique);
+    }
+    else if (domain->bed_centroid_values)
+    {
+        /* bed_centroid_values is per-triangle, not per-vertex.
+         * Expand to vertex values first by copying centroid to each vertex,
+         * then average to unique. */
+        double* bed_vertex = (double*)malloc((size_t)sww->n_expanded * sizeof(double));
+        hydro_int N = domain->number_of_elements;
+        for (hydro_int k = 0; k < N; k++)
+        {
+            double val = domain->bed_centroid_values[k];
+            bed_vertex[3 * k]     = val;
+            bed_vertex[3 * k + 1] = val;
+            bed_vertex[3 * k + 2] = val;
+        }
+        avg_to_unique(sww, bed_vertex, z_unique);
+        free(bed_vertex);
+    }
+
     /* ---- Stage ---- */
     avg_to_unique(sww, domain->stage_vertex_values, uniq);
+
+    /* ANUGA-style clipping: where depth < minimum_allowed_height,
+     * write bed elevation instead of computed stage. */
+    for (hydro_int i = 0; i < n_uniq; i++)
+    {
+        double depth = (double)uniq[i] - (double)z_unique[i];
+        if (depth < domain->minimum_allowed_height)
+        {
+            stage_clipped[i] = (float)z_unique[i];
+            uniq[i] = (float)z_unique[i];
+        }
+        else
+        {
+            stage_clipped[i] = uniq[i];
+        }
+    }
+
     nc_put_vara_float(ncid, sww->stage_var_id, q_start, q_count, uniq);
     /* Update range */
     float range_cur[2];
@@ -558,6 +600,18 @@ int hydro_sww_store_timestep(
 
     /* ---- Xmomentum ---- */
     avg_to_unique(sww, domain->xmom_vertex_values, uniq);
+
+    /* Zero momentum where depth < minimum_allowed_height.
+     * Use the already-clipped stage from above for the depth check. */
+    for (hydro_int i = 0; i < n_uniq; i++)
+    {
+        double depth = (double)stage_clipped[i] - (double)z_unique[i];
+        if (depth < domain->minimum_allowed_height)
+        {
+            uniq[i] = 0.0f;
+        }
+    }
+
     nc_put_vara_float(ncid, sww->xmom_var_id, q_start, q_count, uniq);
     nc_get_var_float(ncid, sww->xmom_range_id, range_cur);
     for (hydro_int i = 0; i < n_uniq; i++)
@@ -569,6 +623,17 @@ int hydro_sww_store_timestep(
 
     /* ---- Ymomentum ---- */
     avg_to_unique(sww, domain->ymom_vertex_values, uniq);
+
+    /* Zero momentum where depth < minimum_allowed_height */
+    for (hydro_int i = 0; i < n_uniq; i++)
+    {
+        double depth = (double)stage_clipped[i] - (double)z_unique[i];
+        if (depth < domain->minimum_allowed_height)
+        {
+            uniq[i] = 0.0f;
+        }
+    }
+
     nc_put_vara_float(ncid, sww->ymom_var_id, q_start, q_count, uniq);
     nc_get_var_float(ncid, sww->ymom_range_id, range_cur);
     for (hydro_int i = 0; i < n_uniq; i++)
@@ -577,6 +642,15 @@ int hydro_sww_store_timestep(
         if (uniq[i] > range_cur[1]) range_cur[1] = uniq[i];
     }
     nc_put_var_float(ncid, sww->ymom_range_id, range_cur);
+
+    free(uniq);
+    free(z_unique);
+    free(stage_clipped);
+    nc_sync(ncid);
+
+    sww->n_timesteps++;
+    return 0;
+}
 
     free(uniq);
     nc_sync(ncid);
