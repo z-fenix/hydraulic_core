@@ -246,9 +246,14 @@ void hydro_edge_precompute(hydro_domain_t* domain)
             domain->edge_qr_stage[ei] = s_bnd[bi];
             domain->edge_qr_xmom[ei] = x_bnd[bi];
             domain->edge_qr_ymom[ei] = y_bnd[bi];
-            domain->edge_zr[ei] = bed_e[ei];
-            domain->edge_hre[ei] = fmax(domain->edge_qr_stage[ei] - bed_e[ei], 0.0);
-            domain->edge_z_half[ei] = bed_e[ei];
+
+            /* For boundary edges, use the centroid bed of the adjacent cell.
+             * bed_edge_values may be uninitialized on the first timestep. */
+            hydro_int k = ei / 3;
+            double bed = domain->bed_centroid_values[k];
+            domain->edge_zr[ei] = bed;
+            domain->edge_hre[ei] = fmax(domain->edge_qr_stage[ei] - bed, 0.0);
+            domain->edge_z_half[ei] = bed;
             domain->edge_h_left[ei] = fmax(h_e[ei], 0.0);
             domain->edge_h_right[ei] = fmax(domain->edge_hre[ei], 0.0);
         }

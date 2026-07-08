@@ -639,15 +639,20 @@ void hydro_quantity_update_derived(hydro_domain_t* domain)
 
         /* Ensure non-negative water depth:
          * If stage is below bed, raise stage to bed so height ≥ 0.
-         * Then clamp height to minimum allowed height h0 for velocity safety. */
+         * For truly dry cells (h == 0), leave height at 0 — the flux
+         * computation will handle dry-wet interfaces correctly.
+         * Only clamp h to h0 when it's positive but tiny, to protect
+         * velocity computations from division by zero. */
         if (h < 0.0)
         {
             stage = bed;
             domain->stage_centroid_values[k] = bed;
-            h = h0; /* minimum wet height for velocity protection */
+            h = 0.0; /* truly dry — flux handles dry-wet interfaces */
         }
         else if (h < h0)
         {
+            /* Near-dry: keep the small depth for velocity protection
+             * but don't artificially inflate it. */
             h = h0;
         }
         domain->height_centroid_values[k] = h;

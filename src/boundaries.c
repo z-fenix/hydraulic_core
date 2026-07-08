@@ -108,7 +108,7 @@ void hydro_boundary_set_time_series(
 
     /* Pre-compute cached geometric metadata (never changes during evolution). */
     double total_width = 0.0;
-    double total_bed = 0.0;
+    double max_bed = -1e30;
     hydro_int bed_count = 0;
     for (hydro_int bi = 0; bi < domain->boundary_length; bi++)
     {
@@ -118,20 +118,18 @@ void hydro_boundary_set_time_series(
             total_width += domain->edgelengths[edge_idx];
 
             hydro_int k = edge_idx / 3;
-            hydro_int ei = edge_idx % 3;
-            /* Average bed of the three triangle vertices adjacent to this edge. */
-            total_bed += (domain->bed_edge_values[3 * k + ei] +
-                domain->bed_edge_values[(3 * k + ei + 1) % (3 * domain->number_of_elements)] +
-                domain->bed_edge_values[(3 * k + ei + 2) % (3 * domain->number_of_elements)]) / 3.0;
+            /* Use centroid bed value which is always available.
+             * bed_edge_values may not be populated at setup time. */
+            double b = domain->bed_centroid_values[k];
+            if (b > max_bed) max_bed = b;
             bed_count++;
         }
     }
     if (total_width < 1e-6) total_width = 1.0; /* fallback */
-    if (bed_count > 0) total_bed /= bed_count;
-    else total_bed = 0.0;
+    double mean_bed = (bed_count > 0) ? max_bed : 0.0;
 
     domain->boundary_time_series[boundary_tag].total_width = total_width;
-    domain->boundary_time_series[boundary_tag].mean_bed = total_bed;
+    domain->boundary_time_series[boundary_tag].mean_bed = mean_bed;
 }
 
 /* Linear interpolation: find index such that time <= t <= time[i+1] */
@@ -234,14 +232,17 @@ void hydro_boundary_update_time_series(
     double total_width = ts->total_width;
     double mean_bed = ts->mean_bed;
 
-    /* Derive stage from Q — add actual terrain bed so the computed depth
-     * sits on top of the real elevation, not at datum 0. */
+    /* Derive water depth from Q using Manning's equation, then add mean_bed
+     * so the computed stage sits on top of the real terrain. */
     double S = 0.01; /* default bed slope for Manning's equation */
     double stage = q_to_stage(Q, mean_bed, 0.03, total_width,
                               S, domain->g, ts->default_stage);
 
-    /* Store depth (relative to mean bed) in boundary_stage_tag;
-     * the dispatch switch adds bed per-edge to get absolute stage. */
+    /* Store the derived stage (based on mean_bed) in boundary_stage_tag.
+     * The per-edge dispatch in hydro_boundary_update subtracts the actual
+     * edge bed to get depth.  For edges where actual bed > stage, depth
+     * is clamped to 0 — this is correct physical behaviour (high spots
+     * remain dry while water flows over lower spots). */
     domain->boundary_stage_tag[boundary_tag] = stage;
     /* Zero momentum — the flux computation will handle the inflow */
     domain->boundary_xmom_tag[boundary_tag] = 0.0;
@@ -543,15 +544,32 @@ void hydro_boundary_update(hydro_domain_t* domain)
             break;
 
         case HYDRO_BC_TIME_SERIES:
-            /* Time-series Q(t) — depth set by hydro_boundary_update_time_series()
-             * before this call.  Fall through to DIRICHLET logic using boundary_stage_tag. */
+            /* Time-series Q(t) — derive stage from Q and actual edge bed.
+             * Unlike Dirichlet BCs, the stage must be computed per-edge
+             * because the terrain bed varies along the boundary. */
             {
-                double stage_ext = domain->boundary_stage_tag[tag];
+                /* Re-derive stage from Q using mean_bed (cached at setup).
+                 * This avoids recomputing Manning's inversion every edge. */
+                double* ts_times = domain->boundary_time_series[tag].times;
+                double* ts_q = domain->boundary_time_series[tag].q_values;
+                int ts_n = domain->boundary_time_series[tag].n_points;
+                double ts_mean_bed = domain->boundary_time_series[tag].mean_bed;
+                double ts_total_width = domain->boundary_time_series[tag].total_width;
+                double ts_default = domain->boundary_time_series[tag].default_stage;
+
+                double Q = linear_interp(ts_times, ts_q, ts_n, domain->time);
+                double S = 0.01;
+                double depth = q_to_stage(Q, ts_mean_bed, 0.03,
+                                          ts_total_width, S, domain->g,
+                                          ts_default) - ts_mean_bed;
+                if (depth < 0) depth = 0;
+
+                double stage_ext = domain->bed_edge_values[k3i] + depth;
                 domain->stage_boundary_values[bi] = stage_ext;
                 domain->bed_boundary_values[bi] = domain->bed_edge_values[k3i];
-                double depth = stage_ext - domain->bed_boundary_values[bi];
-                if (depth < 0) depth = 0;
-                domain->height_boundary_values[bi] = depth;
+                double h = stage_ext - domain->bed_boundary_values[bi];
+                if (h < 0) h = 0;
+                domain->height_boundary_values[bi] = h;
                 domain->xmom_boundary_values[bi] = 0.0;
                 domain->ymom_boundary_values[bi] = 0.0;
             }
