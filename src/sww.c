@@ -571,12 +571,13 @@ int hydro_sww_store_timestep(
     /* ---- Stage ---- */
     avg_to_unique(sww, domain->stage_vertex_values, uniq);
 
-    /* ANUGA-style clipping: where depth < minimum_allowed_height,
-     * write bed elevation instead of computed stage. */
+    /* ANUGA-style clipping: where depth < minimum_storable_height,
+     * write bed elevation instead of computed stage.
+     * This removes thin water layers caused by friction creep. */
     for (hydro_int i = 0; i < n_uniq; i++)
     {
         double depth = (double)uniq[i] - (double)z_unique[i];
-        if (depth < domain->minimum_allowed_height)
+        if (depth < domain->minimum_storable_height)
         {
             stage_clipped[i] = (float)z_unique[i];
             uniq[i] = (float)z_unique[i];
@@ -601,12 +602,12 @@ int hydro_sww_store_timestep(
     /* ---- Xmomentum ---- */
     avg_to_unique(sww, domain->xmom_vertex_values, uniq);
 
-    /* Zero momentum where depth < minimum_allowed_height.
+    /* Zero momentum where depth < minimum_storable_height.
      * Use the already-clipped stage from above for the depth check. */
     for (hydro_int i = 0; i < n_uniq; i++)
     {
         double depth = (double)stage_clipped[i] - (double)z_unique[i];
-        if (depth < domain->minimum_allowed_height)
+        if (depth < domain->minimum_storable_height)
         {
             uniq[i] = 0.0f;
         }
@@ -624,11 +625,11 @@ int hydro_sww_store_timestep(
     /* ---- Ymomentum ---- */
     avg_to_unique(sww, domain->ymom_vertex_values, uniq);
 
-    /* Zero momentum where depth < minimum_allowed_height */
+    /* Zero momentum where depth < minimum_storable_height */
     for (hydro_int i = 0; i < n_uniq; i++)
     {
         double depth = (double)stage_clipped[i] - (double)z_unique[i];
-        if (depth < domain->minimum_allowed_height)
+        if (depth < domain->minimum_storable_height)
         {
             uniq[i] = 0.0f;
         }
@@ -646,13 +647,6 @@ int hydro_sww_store_timestep(
     free(uniq);
     free(z_unique);
     free(stage_clipped);
-    nc_sync(ncid);
-
-    sww->n_timesteps++;
-    return 0;
-}
-
-    free(uniq);
     nc_sync(ncid);
 
     sww->n_timesteps++;

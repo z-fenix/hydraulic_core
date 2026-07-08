@@ -10,6 +10,7 @@
 #include <pybind11/stl.h>
 #include "hydro/hydro.h"
 
+#include <algorithm>
 #include <cstring>
 #include <stdexcept>
 
@@ -222,7 +223,8 @@ PYBIND11_MODULE(_core, m) {
     /* ---- Constants ---- */
     m.attr("G")     = 9.8;
     m.attr("EPSILON") = 1.0e-6;
-    m.attr("MINIMUM_ALLOWED_HEIGHT") = 1.0e-5;
+    m.attr("MINIMUM_ALLOWED_HEIGHT") = 1.0e-05;
+    m.attr("MINIMUM_STORABLE_HEIGHT") = 1.0e-03;
     m.attr("MAXIMUM_ALLOWED_SPEED")  = 1000.0;
     m.attr("DEFAULT_MANNING") = 0.03;
     m.attr("EVOLVE_MAX_TIMESTEP") = 1000.0;

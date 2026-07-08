@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=82.0", "wheel", "pybind11>=3.0", "numpy>=2.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hydro_core"
+version = "0.1.0"
+description = "Shallow water equation solver — standalone C library with Python bindings"
+license = {text = "BSD"}
+authors = [
+    {name = "ANUGA Community"},
+]
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=2.0",
+    "pybind11>=3.0",
+]
+
+[project.optional-dependencies]
+netcdf = ["netCDF4"]
+
+[tool.setuptools.packages.find]
+include = ["hydro*"]
+
+[tool.setuptools.package-data]
+hydro = ["_core*.so"]

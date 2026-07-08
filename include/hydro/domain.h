@@ -29,6 +29,7 @@ typedef struct
     /* Physical/numerical parameters */
     double epsilon;
     double H0; /* H0 = minimum_allowed_height */
+    double minimum_storable_height; /* min depth written to SWW file */
     double g; /* gravity */
     double evolve_max_timestep;
     double evolve_min_timestep;

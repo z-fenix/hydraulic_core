@@ -269,6 +269,7 @@ int hydro_domain_evolve(
     double yield_dt_min = 1e100;
     double yield_dt_max = 0.0;
     int first_yield = 1;
+    double next_yield_time = yieldstep; /* next yield boundary */
 
     while (domain->time < finaltime)
     {
@@ -303,34 +304,28 @@ int hydro_domain_evolve(
         hydro_quantity_extrapolate_first_order(domain);
         hydro_quantity_distribute_edges_to_vertices(domain);
 
-        /* Store to SWW at yieldstep intervals */
+        /* Store to SWW at yieldstep intervals.
+         * Print progress at the same boundaries.
+         * next_yield_time tracks the upcoming yield boundary; advance it
+         * after each yield to avoid duplicate prints when timestep varies. */
         int at_yield = 0;
-        if (sww && yieldstep > 0)
+        if (domain->time >= next_yield_time - domain->timestep * 0.5
+            || domain->time >= finaltime - domain->timestep * 0.5)
         {
-            double reltime = domain->time - domain->starttime;
-            if (fabs(fmod(domain->time, yieldstep)) < domain->timestep * 0.5
-                || domain->time >= finaltime)
-            {
-                hydro_sww_store_timestep(sww, domain, reltime);
-                at_yield = 1;
-            }
-        }
-        else
-        {
-            /* No SWW output — print progress at yieldstep boundaries anyway */
-            if (yieldstep > 0)
-            {
-                double next_yield = domain->yieldstep_counter * yieldstep;
-                if (fabs(domain->time - next_yield) < domain->timestep * 0.5
-                    || domain->time >= finaltime)
-                {
-                    at_yield = 1;
-                }
-            }
+            at_yield = 1;
         }
 
         if (at_yield)
         {
+            /* Advance the yield boundary for the next cycle */
+            next_yield_time += yieldstep;
+
+            if (sww && yieldstep > 0)
+            {
+                double reltime = domain->time - domain->starttime;
+                hydro_sww_store_timestep(sww, domain, reltime);
+            }
+
             double wall_now = wall_seconds();
             double wall_elapsed = wall_now - evolve_start_wall;
             double wall_interval = wall_now - yield_wall_start;

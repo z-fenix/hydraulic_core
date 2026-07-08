@@ -59,6 +59,7 @@ hydro_domain_t* hydro_domain_create(hydro_int n_nodes, hydro_int n_triangles)
     d->evolve_max_timestep = HYDRO_MAX_TIMESTEP;
     d->evolve_min_timestep = HYDRO_MIN_TIMESTEP;
     d->minimum_allowed_height = HYDRO_MINIMUM_ALLOWED_HEIGHT;
+    d->minimum_storable_height = HYDRO_MINIMUM_STORABLE_HEIGHT;
     d->maximum_allowed_speed = HYDRO_MAXIMUM_ALLOWED_SPEED;
 
     d->beta_w = HYDRO_BETA_W;
@@ -584,6 +585,7 @@ void hydro_domain_set_parameter(
     else if (strcmp(name, "evolve_max_timestep") == 0) d->evolve_max_timestep = value;
     else if (strcmp(name, "evolve_min_timestep") == 0) d->evolve_min_timestep = value;
     else if (strcmp(name, "minimum_allowed_height") == 0) d->minimum_allowed_height = value;
+    else if (strcmp(name, "minimum_storable_height") == 0) d->minimum_storable_height = value;
     else if (strcmp(name, "maximum_allowed_speed") == 0) d->maximum_allowed_speed = value;
     else if (strcmp(name, "spatial_order") == 0) d->spatial_order = (hydro_int)value;
     else if (strcmp(name, "timestepping_method") == 0) d->timestepping_method = (hydro_int)value;
