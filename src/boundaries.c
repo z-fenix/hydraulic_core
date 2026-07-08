@@ -544,32 +544,16 @@ void hydro_boundary_update(hydro_domain_t* domain)
             break;
 
         case HYDRO_BC_TIME_SERIES:
-            /* Time-series Q(t) — derive stage from Q and actual edge bed.
-             * Unlike Dirichlet BCs, the stage must be computed per-edge
-             * because the terrain bed varies along the boundary. */
+            /* Time-series Q(t) — hydro_boundary_update_time_series() already
+             * derived stage from Q(t) and stored it in boundary_stage_tag[tag].
+             * Use the same per-edge bed subtraction pattern as Dirichlet. */
             {
-                /* Re-derive stage from Q using mean_bed (cached at setup).
-                 * This avoids recomputing Manning's inversion every edge. */
-                double* ts_times = domain->boundary_time_series[tag].times;
-                double* ts_q = domain->boundary_time_series[tag].q_values;
-                int ts_n = domain->boundary_time_series[tag].n_points;
-                double ts_mean_bed = domain->boundary_time_series[tag].mean_bed;
-                double ts_total_width = domain->boundary_time_series[tag].total_width;
-                double ts_default = domain->boundary_time_series[tag].default_stage;
-
-                double Q = linear_interp(ts_times, ts_q, ts_n, domain->time);
-                double S = 0.01;
-                double depth = q_to_stage(Q, ts_mean_bed, 0.03,
-                                          ts_total_width, S, domain->g,
-                                          ts_default) - ts_mean_bed;
-                if (depth < 0) depth = 0;
-
-                double stage_ext = domain->bed_edge_values[k3i] + depth;
+                double stage_ext = domain->boundary_stage_tag[tag];
                 domain->stage_boundary_values[bi] = stage_ext;
                 domain->bed_boundary_values[bi] = domain->bed_edge_values[k3i];
-                double h = stage_ext - domain->bed_boundary_values[bi];
-                if (h < 0) h = 0;
-                domain->height_boundary_values[bi] = h;
+                double depth = stage_ext - domain->bed_boundary_values[bi];
+                if (depth < 0) depth = 0;
+                domain->height_boundary_values[bi] = depth;
                 domain->xmom_boundary_values[bi] = 0.0;
                 domain->ymom_boundary_values[bi] = 0.0;
             }
