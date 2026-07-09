@@ -78,3 +78,9 @@ __version__ = "0.1.0"
 # High-level Python wrappers (depend on _core being available)
 from hydro.time_series_boundary import TimeSeriesInflowBoundary
 from hydro.quantity_centroids import QuantityCentroids
+from hydro.mesh_utils import (
+    build_boundary_info,
+    load_csv_quantity_to_centroids,
+    find_boundary_edges_near_region,
+    map_region_to_boundary,
+)

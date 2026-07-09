@@ -23,10 +23,12 @@ equation.  The effective channel width is auto-derived from the boundary
 edge geometry (sum of edge lengths for edges with the given tag).
 """
 
+from __future__ import annotations
+
 import numpy as np
 from scipy.interpolate import interp1d
 
-from hydro._core import HYDRO_BC_TIME_SERIES
+from hydro._core import HYDRO_BC_TIME_SERIES, Domain
 
 
 class TimeSeriesInflowBoundary:
