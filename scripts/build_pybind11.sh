@@ -6,11 +6,11 @@
 #   ./scripts/build_pybind11.sh              # build
 #   ./scripts/build_pybind11.sh clean        # remove build artifacts
 #   ./scripts/build_pybind11.sh install      # build + install to hydro/ dir
+#   ./scripts/build_pybind11.sh gpu          # build GPU module (requires nvcc)
 #
 # Requirements:
-#   pybind11  (pip install pybind11)
-#   netcdf C library
-#   g++ with C++17 support
+#   pybind11, numpy, netcdf C library, g++ with C++17 support
+#   [gpu] nvcc, cupy
 # ============================================================================
 
 set -euo pipefail
@@ -21,6 +21,8 @@ HYDRO_DIR="${ROOT_DIR}/hydro"
 SRC_DIR="${ROOT_DIR}/src"
 INC_DIR="${ROOT_DIR}/include"
 BINDINGS="${ROOT_DIR}/python/bindings.cpp"
+GPU_BINDINGS="${ROOT_DIR}/python/gpu_bindings.cpp"
+CUDA_SRC="${ROOT_DIR}/hydro/cuda/hydro_cuda.cu"
 
 # --- colours ---
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; NC='\033[0m'
@@ -86,6 +88,7 @@ do_clean() {
     info "Cleaning ${BUILD_DIR} ..."
     rm -rf "${BUILD_DIR}"
     rm -f "${HYDRO_DIR}"/_core*.so
+    rm -f "${HYDRO_DIR}"/_gpu*.so
     info "Done."
 }
 
@@ -143,12 +146,79 @@ do_build() {
     info "Build complete — output in ${BUILD_DIR}/"
 }
 
+do_build_gpu() {
+    # Check for nvcc
+    if ! command -v nvcc &>/dev/null; then
+        err "nvcc not found. Install CUDA toolkit or set NVCC=/path/to/nvcc"
+        exit 1
+    fi
+    info "nvcc: $(nvcc --version | grep release)"
+
+    # Check for cupy
+    if ! "$PYTHON" -c "import cupy" 2>/dev/null; then
+        warn "cupy not found. GPU module will build but requires cupy at runtime."
+    fi
+
+    mkdir -p "${BUILD_DIR}/gpu"
+    cd "${BUILD_DIR}/gpu"
+
+    # --- compile C library (reuse from parent) ---
+    local LIB_A="libhydro_pic.a"
+    if [ ! -f "$LIB_A" ]; then
+        cd "../.."
+        do_build
+        cd "gpu"
+    fi
+    cp "../../${LIB_A}" .
+
+    # --- compile CUDA kernels ---
+    info "NVCC  hydro_cuda.o"
+    nvcc -std=c++17 -Xcompiler="${OPENMP_FLAG} -fPIC -O2" \
+        -I"${INC_DIR}" \
+        ${NETCDF_CFLAGS} \
+        -c "${CUDA_SRC}" -o hydro_cuda.o
+
+    # --- compile GPU pybind11 bindings ---
+    local GPU_TARGET="_gpu${PY_SUFFIX}"
+    info "CXX   ${GPU_TARGET}"
+    local NUMPY_ARG=""
+    [ -n "${NUMPY_INCLUDE:-}" ] && NUMPY_ARG="-I${NUMPY_INCLUDE}"
+
+    g++ -std=c++17 -fPIC ${OPENMP_FLAG} -O2 \
+        -shared \
+        -I"${INC_DIR}" \
+        -I"${PY_INCLUDE}" \
+        -I"${PYBIND11_INCLUDE}" \
+        ${NUMPY_ARG} \
+        ${NETCDF_CFLAGS} \
+        "${GPU_BINDINGS}" \
+        hydro_cuda.o \
+        libhydro_pic.a \
+        ${NETCDF_LIBS} \
+        -lm \
+        -o "${GPU_TARGET}"
+
+    info "Built ${GPU_TARGET}"
+    echo ""
+    info "GPU build complete — output in ${BUILD_DIR}/gpu/"
+}
+
 do_install() {
-    do_clean
     do_build
     local SRC=$(ls "${BUILD_DIR}"/_core*.so 2>/dev/null | head -1)
     if [ -z "${SRC:-}" ]; then
         err "No _core*.so found in ${BUILD_DIR}"
+        exit 1
+    fi
+    cp "$SRC" "${HYDRO_DIR}/"
+    info "Installed $(basename "$SRC") → ${HYDRO_DIR}/"
+}
+
+do_install_gpu() {
+    do_build_gpu
+    local SRC=$(ls "${BUILD_DIR}/gpu"/_gpu*.so 2>/dev/null | head -1)
+    if [ -z "${SRC:-}" ]; then
+        err "No _gpu*.so found in ${BUILD_DIR}/gpu"
         exit 1
     fi
     cp "$SRC" "${HYDRO_DIR}/"
@@ -163,8 +233,10 @@ case "${1:-build}" in
     clean)   do_clean ;;
     install) do_install ;;
     build)   do_build ;;
+    gpu)     do_build_gpu ;;
+    install-gpu) do_install_gpu ;;
     *)
-        echo "Usage: $0 {build|install|clean}"
+        echo "Usage: $0 {build|install|clean|gpu|install-gpu}"
         exit 1
         ;;
 esac

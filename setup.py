@@ -10,6 +10,7 @@ Usage:
 
 Requirements:
     pybind11, numpy, netcdf4 (libnetcdf-dev)
+    [gpu] cupy, nvcc
 """
 
 import os
@@ -64,6 +65,11 @@ class BuildPybind11(Command):
                 cwd=str(build_dir))
             # Copy .so to package dir
             for so in build_dir.glob("_core*.so"):
+                shutil.copy2(str(so), str(HYDRO_PKG / so.name))
+                print(f"[hydro] Copied {so.name} → {HYDRO_PKG}/")
+
+            # Also copy _gpu if built
+            for so in build_dir.glob("_gpu*.so"):
                 shutil.copy2(str(so), str(HYDRO_PKG / so.name))
                 print(f"[hydro] Copied {so.name} → {HYDRO_PKG}/")
 

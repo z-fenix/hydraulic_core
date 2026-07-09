@@ -13,17 +13,12 @@ option(HYDRO_BUILD_TESTS "Build C tests" ON)
 option(HYDRO_BUILD_SHARED "Build shared library" ON)
 option(HYDRO_BUILD_STATIC "Build static library" ON)
 option(HYDRO_BUILD_PYBIND11 "Build pybind11 Python extension (requires pybind11 + Python dev)" OFF)
+option(HYDRO_BUILD_GPU "Build CUDA GPU module (requires nvcc + cupy at runtime)" OFF)
 
 # Installation paths
 include(GNUInstallDirs)
 
-# Options
-option(HYDRO_OPENMP "Enable OpenMP parallelism" ON)
-option(HYDRO_BUILD_TESTS "Build C tests" ON)
-option(HYDRO_BUILD_SHARED "Build shared library" ON)
-option(HYDRO_BUILD_STATIC "Build static library" ON)
-
-# Find dependencies
+# Options (HYDRO_BUILD_GPU defined above with others)
 find_package(OpenMP)
 if(OpenMP_FOUND AND HYDRO_OPENMP)
     message(STATUS "OpenMP enabled")
@@ -300,4 +295,82 @@ if(HYDRO_BUILD_PYBIND11)
     install(TARGETS _core
         LIBRARY DESTINATION "${CMAKE_CURRENT_SOURCE_DIR}/hydro"
     )
+endif()
+
+# ===========================================================================
+# CUDA GPU module
+# ===========================================================================
+
+if(HYDRO_BUILD_GPU)
+    message(STATUS "CUDA GPU module enabled")
+
+    # Enable CUDA language
+    enable_language(CUDA)
+    set(CMAKE_CUDA_STANDARD 17)
+    set(CMAKE_CUDA_STANDARD_REQUIRED ON)
+
+    # Find CUDA toolkit
+    find_package(CUDAToolkit QUIET)
+    if(CUDAToolkit_FOUND)
+        message(STATUS "CUDA toolkit found: ${CUDAToolkit_VERSION}")
+    else()
+        # Fallback: assume nvcc is in PATH
+        find_program(NVCC nvcc)
+        if(NVCC)
+            message(STATUS "nvcc found: ${NVCC}")
+        else()
+            message(WARNING "CUDA toolkit not found — GPU module will not build")
+            set(HYDRO_BUILD_GPU OFF)
+        endif()
+    endif()
+
+    if(HYDRO_BUILD_GPU)
+        # Build CUDA kernels as a static library
+        add_library(hydro_cuda STATIC
+            hydro/cuda/hydro_cuda.cu
+        )
+        target_include_directories(hydro_cuda PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/include
+        )
+        target_link_libraries(hydro_cuda PRIVATE hydro_static m)
+
+        if(CUDAToolkit_FOUND)
+            target_link_libraries(hydro_cuda PRIVATE CUDA::cudart)
+        endif()
+
+        # Build _gpu pybind11 module
+        find_package(pybind11 QUIET)
+        if(NOT pybind11_FOUND)
+            execute_process(
+                COMMAND ${Python_EXECUTABLE} -c
+                        "import pybind11; print(pybind11.get_cmake_dir())"
+                OUTPUT_VARIABLE _pybind11_cmake_dir
+                OUTPUT_STRIP_TRAILING_WHITESPACE
+                RESULT_VARIABLE _pybind11_result
+            )
+            if(_pybind11_result EQUAL 0 AND EXISTS "${_pybind11_cmake_dir}")
+                list(APPEND CMAKE_PREFIX_PATH "${_pybind11_cmake_dir}")
+                find_package(pybind11 REQUIRED)
+            else()
+                message(FATAL_ERROR
+                    "pybind11 not found. Install it or point pybind11_DIR.\n"
+                    "  pip install pybind11")
+            endif()
+        endif()
+
+        pybind11_add_module(_gpu python/gpu_bindings.cpp)
+        target_include_directories(_gpu PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/include
+        )
+        target_link_libraries(_gpu PRIVATE
+            hydro_cuda
+            hydro_shared
+            netcdf_imported
+            ${OpenMP_C_LIBRARIES}
+        )
+
+        install(TARGETS _gpu
+            LIBRARY DESTINATION "${CMAKE_CURRENT_SOURCE_DIR}/hydro"
+        )
+    endif()
 endif()

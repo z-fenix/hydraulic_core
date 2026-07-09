@@ -18,9 +18,10 @@ dependencies = [
 
 [project.optional-dependencies]
 netcdf = ["netCDF4"]
+gpu = ["cupy>=13.0"]
 
 [tool.setuptools.packages.find]
 include = ["hydro*"]
 
 [tool.setuptools.package-data]
-hydro = ["_core*.so"]
+hydro = ["_core*.so", "_gpu*.so"]

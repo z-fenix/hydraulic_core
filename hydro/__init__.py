@@ -75,6 +75,19 @@ except ModuleNotFoundError:
 
 __version__ = "0.1.0"
 
+# GPU module — optional, only available if built with HYDRO_BUILD_GPU=ON
+try:
+    from hydro._gpu import GPUInterface as _GPUInterface  # type: ignore[import]
+    _HAS_GPU = True
+except (ModuleNotFoundError, ImportError):
+    _HAS_GPU = False
+
 # High-level Python wrappers (depend on _core being available)
 from hydro.time_series_boundary import TimeSeriesInflowBoundary
 from hydro.quantity_centroids import QuantityCentroids
+from hydro.mesh_utils import (
+    build_boundary_info,
+    load_csv_quantity_to_centroids,
+    find_boundary_edges_near_region,
+    map_region_to_boundary,
+)
