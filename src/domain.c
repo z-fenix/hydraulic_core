@@ -90,6 +90,7 @@ hydro_domain_t* hydro_domain_create(hydro_int n_nodes, hydro_int n_triangles)
     d->timestep = 0.0;
     d->flux_timestep = 0.0;
     d->yieldstep_counter = 0;
+    d->output_frequency = 1; /* write SWW every yieldstep by default */
     d->step = 0;
 
     /* ---- Geo-reference defaults ---- */

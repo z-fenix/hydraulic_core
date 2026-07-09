@@ -68,7 +68,7 @@ domain.set_boundary(4, HYDRO_BC_REFLECTIVE)               # bottom — wall
 # Evolve
 # ---------------------------------------------------------------------------
 t0 = time.time()
-domain.evolve(finaltime=40.0, yieldstep=0.2)
+domain.evolve(finaltime=40.0, yieldstep=0.2,outputstep=1.0)
 elapsed = time.time() - t0
 
 stage = domain.get_stage()

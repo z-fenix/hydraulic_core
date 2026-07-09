@@ -173,6 +173,7 @@ typedef struct
     double timestep; /* current timestep */
     double flux_timestep; /* CFL-constrained timestep */
     hydro_int yieldstep_counter; /* steps since last yield */
+    hydro_int output_frequency;  /* SWW write every N yieldsteps */
     hydro_int step; /* total step count */
 
     /* ---- Geo-reference (for SWW output) ---- */

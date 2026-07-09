@@ -186,9 +186,9 @@ public:
     }
 
     /* --- Evolution --- */
-    void evolve(double finaltime, double yieldstep = 1.0) {
+    void evolve(double finaltime, double yieldstep = 1.0, double outputstep = 0.0) {
         hydro_quantity_update_derived(handle_);
-        int ret = hydro_domain_evolve(handle_, finaltime, yieldstep);
+        int ret = hydro_domain_evolve(handle_, finaltime, yieldstep, outputstep);
         if (ret != 0)
             throw std::runtime_error("hydro_domain_evolve failed (code " +
                 std::to_string(ret) + ")");
@@ -306,7 +306,8 @@ boundary_edges : ndarray (B,) int64, optional
 
         /* Evolution */
         .def("evolve", &Domain::evolve,
-             py::arg("finaltime"), py::arg("yieldstep") = 1.0)
+             py::arg("finaltime"), py::arg("yieldstep") = 1.0,
+             py::arg("outputstep") = 0.0)
         .def("get_time", &Domain::get_time)
 
         /* Accessors */

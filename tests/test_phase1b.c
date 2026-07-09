@@ -91,7 +91,7 @@ int main(void) {
 
     hydro_domain_set_name(d, "hydro_phase1b");
     hydro_domain_set_output_dir(d, "/tmp");
-    int ret = hydro_domain_evolve(d, 0.1, 0.05);
+    int ret = hydro_domain_evolve(d, 0.1, 0.05, 0.1);
     assert(ret == 0);
     printf("Evolve complete: %lld steps, final time=%g\n",
            (long long)d->step, d->time);

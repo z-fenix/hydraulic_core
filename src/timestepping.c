@@ -14,6 +14,7 @@
 #include "hydro/sww.h"
 #include "hydro/config.h"
 #include <math.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
@@ -79,9 +80,9 @@ static void print_yieldstep_progress(
     long mem_mb = get_vmrss_mb();
 
     printf("Time = %.4f (sec), delta t in [%.8f, %.8f] (s), "
-           "steps=%lld (%llds), elapsed (%.0fs), eta (%ldm:%02lds)",
+           "steps=%lld/%lld (%llds), elapsed (%.0fs), eta (%ldm:%02lds)",
            sim_time, dt_min, dt_max,
-           (long long)step_count, (long long)wall_interval,
+           (long long)interval_steps, (long long)step_count, (long long)wall_interval,
            wall_elapsed, eta_min, eta_s);
     if (mem_mb > 0)
         printf(", mem=%ldMB", mem_mb);
@@ -115,15 +116,27 @@ void hydro_update_timestep(
         dt = domain->evolve_min_timestep;
     }
 
-    double remaining = finaltime - domain->time;
+    const double remaining = finaltime - domain->time;
     if (dt > remaining) dt = remaining;
 
     if (yieldstep > 0)
     {
-        domain->yieldstep_counter++;
-        double next_yield = domain->yieldstep_counter * yieldstep;
-        double to_yield = next_yield - domain->time;
-        if (dt > to_yield) dt = to_yield;
+        /* Compute yield index from current time (not step count).
+         * This ensures yieldstep_counter accurately reflects how many
+         * yield boundaries have been crossed, regardless of step size. */
+        const hydro_int current_yield_idx = (hydro_int)floor(domain->time / yieldstep);
+        if (current_yield_idx > domain->yieldstep_counter)
+        {
+            domain->yieldstep_counter = current_yield_idx;
+        }
+        const double next_yield = domain->yieldstep_counter * yieldstep;
+        const double step_yield = next_yield - domain->time;
+        /* Only align to yield boundary if we haven't reached it yet
+         * and there is meaningful distance to travel. */
+        if (step_yield > domain->evolve_min_timestep && dt > step_yield)
+        {
+            dt = step_yield;
+        }
     }
 
     domain->timestep = dt;
@@ -174,7 +187,7 @@ void hydro_evolve_one_euler_step(
 
     /* 8. Secondary safety net: catch any cells still negative after protect */
     {
-        hydro_int neg = hydro_fix_negative_cells(domain);
+        const hydro_int neg = hydro_fix_negative_cells(domain);
         if (neg > 0)
         {
             fprintf(stderr, "hydro: WARNING — %lld cells still negative after protect (step %lld)\n",
@@ -209,14 +222,15 @@ void hydro_evolve_one_rk3_step(
 int hydro_domain_evolve(
     hydro_domain_t* domain,
     double finaltime,
-    double yieldstep)
+    double yieldstep,
+    double outputstep)
 {
     hydro_sww_t* sww = NULL;
-    int sww_is_append = 0;
 
     /* Build SWW path from domain name + output_dir, if name is set */
     if (domain->name[0] != '\0')
     {
+        int sww_is_append = 0;
         char sww_path[5120];
         int n = snprintf(sww_path, sizeof(sww_path), "%s/%s.sww",
                          domain->output_dir, domain->name);
@@ -254,22 +268,33 @@ int hydro_domain_evolve(
         /* On first create, store initial frame */
         if (!sww_is_append)
         {
-            double init_time = domain->time - domain->starttime;
+            const double init_time = domain->time - domain->starttime;
             hydro_sww_store_timestep(sww, domain, init_time);
         }
     }
 
-    printf("hydro: evolving to t=%g with yieldstep=%g\n", finaltime, yieldstep);
+    /* Determine output frequency: outputstep / yieldstep.
+     * If outputstep <= 0, default to yieldstep (frequency = 1). */
+    if (outputstep > 0 && yieldstep > 0)
+    {
+        domain->output_frequency = (hydro_int)(outputstep / yieldstep);
+        if (domain->output_frequency < 1) domain->output_frequency = 1;
+    }
+    else
+    {
+        domain->output_frequency = 1;
+    }
+
+    printf("hydro: evolving to t=%g with yieldstep=%g outputstep=%g\n",
+           finaltime, yieldstep, outputstep);
 
     /* ---- Progress-tracking state ---- */
-    double evolve_start_wall = wall_seconds();
-    double evolve_start_sim = domain->time;
+    const double evolve_start_wall = wall_seconds();
+    const double evolve_start_sim = domain->time;
     double yield_wall_start = evolve_start_wall;
     long long yield_step_start = domain->step;
     double yield_dt_min = 1e100;
     double yield_dt_max = 0.0;
-    int first_yield = 1;
-    double next_yield_time = yieldstep; /* next yield boundary */
 
     while (domain->time < finaltime)
     {
@@ -304,49 +329,40 @@ int hydro_domain_evolve(
         hydro_quantity_extrapolate_first_order(domain);
         hydro_quantity_distribute_edges_to_vertices(domain);
 
-        /* Store to SWW at yieldstep intervals.
-         * Print progress at the same boundaries.
-         * next_yield_time tracks the upcoming yield boundary; advance it
-         * after each yield to avoid duplicate prints when timestep varies. */
-        int at_yield = 0;
-        if (domain->time >= next_yield_time - domain->timestep * 0.5
-            || domain->time >= finaltime - domain->timestep * 0.5)
+        /* Deterministic yield-crossing detection using integer index. */
+        if (yieldstep > 0)
         {
-            at_yield = 1;
-        }
+            const hydro_int step_count = (hydro_int)floor(domain->time / yieldstep);
 
-        if (at_yield)
-        {
-            /* Advance the yield boundary for the next cycle */
-            next_yield_time += yieldstep;
-
-            if (sww && yieldstep > 0)
+            if (step_count != domain->yieldstep_counter)
             {
-                double reltime = domain->time - domain->starttime;
-                hydro_sww_store_timestep(sww, domain, reltime);
-            }
+                domain->yieldstep_counter = step_count;
 
-            double wall_now = wall_seconds();
-            double wall_elapsed = wall_now - evolve_start_wall;
-            double wall_interval = wall_now - yield_wall_start;
+                /* SWW write when output frequency aligns */
+                if (sww && (domain->yieldstep_counter % domain->output_frequency == 0))
+                {
+                    const double reltime = step_count * yieldstep - domain->starttime;
+                    hydro_sww_store_timestep(sww, domain, reltime);
+                }
 
-            /* Only print if meaningful work was done */
-            if (first_yield || wall_interval > 0.001)
-            {
+                /* Progress print at every yieldstep boundary */
+                const double wall_now = wall_seconds();
+                const double wall_elapsed = wall_now - evolve_start_wall;
+                const double wall_interval = wall_now - yield_wall_start;
+
                 print_yieldstep_progress(
                     domain->time, wall_elapsed, wall_interval,
                     yield_dt_min, yield_dt_max,
                     domain->step,
                     domain->step - yield_step_start,
                     finaltime, evolve_start_sim);
-                first_yield = 0;
-            }
 
-            /* Reset per-interval tracking */
-            yield_wall_start = wall_now;
-            yield_step_start = domain->step;
-            yield_dt_min = 1e100;
-            yield_dt_max = 0.0;
+                /* Reset per-interval tracking */
+                yield_wall_start = wall_now;
+                yield_step_start = domain->step;
+                yield_dt_min = 1e100;
+                yield_dt_max = 0.0;
+            }
         }
     }
 
