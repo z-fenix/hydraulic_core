@@ -144,6 +144,7 @@ do_build() {
 }
 
 do_install() {
+    do_clean
     do_build
     local SRC=$(ls "${BUILD_DIR}"/_core*.so 2>/dev/null | head -1)
     if [ -z "${SRC:-}" ]; then
