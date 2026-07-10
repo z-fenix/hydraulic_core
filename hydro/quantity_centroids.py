@@ -88,16 +88,16 @@ def _max_abs(arr: np.ndarray) -> np.ndarray:
 
 
 def _centroid_avg_vertex_2d(
-    data: np.ndarray,  # (nt, nv)
-    vols: np.ndarray,  # (n_tri, 3)
+        data: np.ndarray,  # (nt, nv)
+        vols: np.ndarray,  # (n_tri, 3)
 ) -> np.ndarray:  # (nt, n_tri)
     """Average a 2-D vertex array to triangle centroids."""
     return (data[:, vols[:, 0]] + data[:, vols[:, 1]] + data[:, vols[:, 2]]) / 3.0
 
 
 def _centroid_avg_vertex_1d(
-    data: np.ndarray,  # (nv,)
-    vols: np.ndarray,  # (n_tri, 3)
+        data: np.ndarray,  # (nv,)
+        vols: np.ndarray,  # (n_tri, 3)
 ) -> np.ndarray:  # (n_tri,)
     """Average a 1-D vertex array to triangle centroids."""
     return (data[vols[:, 0]] + data[vols[:, 1]] + data[vols[:, 2]]) / 3.0
@@ -154,11 +154,11 @@ class QuantityCentroids:
     """
 
     def __init__(
-        self,
-        filename,
-        velocity_extrapolation: bool = False,
-        time_slices='all',
-        minimum_allowed_height: float = 1e-3,
+            self,
+            filename,
+            velocity_extrapolation: bool = False,
+            time_slices='all',
+            minimum_allowed_height: float = 1e-3,
     ) -> None:
         self.filename = Path(filename)
         self.timeSlices = time_slices
@@ -184,6 +184,10 @@ class QuantityCentroids:
             # Centroid coordinates (static)
             self.x = _centroid_avg_vertex_1d(x_vert, vols) + self.xllcorner
             self.y = _centroid_avg_vertex_1d(y_vert, vols) + self.yllcorner
+
+            # Mesh geometry — vertex coordinates and triangle connectivity
+            self.vertices = np.column_stack((x_vert + self.xllcorner, y_vert + self.yllcorner))
+            self.triangles = vols.astype(np.int64)
 
             # Elevation (static, per vertex)
             elev_vert = fid.variables['elevation'][:]
@@ -211,6 +215,10 @@ class QuantityCentroids:
             xmom_c = _centroid_avg_vertex_2d(xmom_all, vols)
             ymom_c = _centroid_avg_vertex_2d(ymom_all, vols)
 
+            # Mesh geometry
+            self.vertices = np.column_stack((x_vert + self.xllcorner, y_vert + self.yllcorner))
+            self.triangles = vols.astype(np.int64)
+
             # Elevation at first timestep
             elev_cent = _centroid_avg_vertex_1d(elev_vert, vols)
 
@@ -224,7 +232,7 @@ class QuantityCentroids:
             hInv = 1.0 / (height_c + 1.0e-12)
             xvel_c = xmom_c * hInv * hWet
             yvel_c = ymom_c * hInv * hWet
-            vel_c = np.sqrt(xvel_c**2 + yvel_c**2)
+            vel_c = np.sqrt(xvel_c ** 2 + yvel_c ** 2)
 
             # Max-over-time reductions
             self.time = np.array([time_all.max()], dtype=np.float64)
@@ -297,7 +305,7 @@ class QuantityCentroids:
                 xvel_c = xmom_c * hInv_c * hWet_c
                 yvel_c = ymom_c * hInv_c * hWet_c
 
-            vel_c = np.sqrt(xvel_c**2 + yvel_c**2)
+            vel_c = np.sqrt(xvel_c ** 2 + yvel_c ** 2)
 
             # Assign attributes
             self.time = self.time
