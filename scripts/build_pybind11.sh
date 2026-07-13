@@ -6,6 +6,7 @@
 #   ./scripts/build_pybind11.sh              # build
 #   ./scripts/build_pybind11.sh clean        # remove build artifacts
 #   ./scripts/build_pybind11.sh install      # build + install to hydro/ dir
+#   ./scripts/build_pybind11.sh package      # build + create dist/*.whl
 #
 # Requirements:
 #   pybind11  (pip install pybind11)
@@ -89,6 +90,40 @@ do_clean() {
     info "Done."
 }
 
+do_package() {
+    # --- ensure _core is built into hydro/ ---
+    do_install
+
+    # --- clean previous dist ---
+    rm -rf "${ROOT_DIR}"/dist
+    rm -rf "${ROOT_DIR}"/_dist_build_temp
+    mkdir -p "${ROOT_DIR}"/_dist_build_temp
+
+    # --- determine version from __init__.py ---
+    local VERSION
+    VERSION=$("$PYTHON" -c "import sys; sys.path.insert(0,'${ROOT_DIR}'); import hydro; print(hydro.__version__)")
+    info "Packaging hydro_core ${VERSION} ..."
+
+    # --- build wheel ---
+    info "Building wheel ..."
+    (cd "${ROOT_DIR}" && "$PYTHON" -m pip wheel . --no-deps -w "${ROOT_DIR}/dist")
+
+    # --- also build sdist ---
+    info "Building sdist ..."
+    if "$PYTHON" -c "import build" 2>/dev/null; then
+        (cd "${ROOT_DIR}/_dist_build_temp" && \
+         "$PYTHON" -m build --sdist --no-isolation \
+            --outdir "${ROOT_DIR}/dist" \
+            "${ROOT_DIR}")
+    else
+        warn "'build' not installed — skipping sdist (install with: pip install build)"
+    fi
+    rm -rf "${ROOT_DIR}"/_dist_build_temp
+
+    info "Artifacts in ${ROOT_DIR}/dist/"
+    ls -lh "${ROOT_DIR}"/dist/
+}
+
 do_build() {
     mkdir -p "${BUILD_DIR}"
     cd "${BUILD_DIR}"
@@ -163,8 +198,9 @@ case "${1:-build}" in
     clean)   do_clean ;;
     install) do_install ;;
     build)   do_build ;;
+    package) do_package ;;
     *)
-        echo "Usage: $0 {build|install|clean}"
+        echo "Usage: $0 {build|install|package|clean}"
         exit 1
         ;;
 esac
